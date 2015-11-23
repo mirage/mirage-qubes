@@ -25,7 +25,7 @@ module Flow : sig
   (** Read a complete line from stdin. *)
 end
 
-type handler = string -> Flow.flow -> int Lwt.t
+type handler = user:string -> string -> Flow.flow -> int Lwt.t
 (** A handler gets a command-line and a two-way connection to the requesting client each time
     the remote client sends a MSG_EXEC_CMDLINE request. The "exit code" from the handler
     is returned to the client. *)

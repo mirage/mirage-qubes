@@ -1,6 +1,13 @@
 open Lwt
 open Qrexec_protocol
 
+let split chr s =
+  try
+    let i = String.index s chr in
+    Some (String.sub s 0 i, String.sub s (i + 1) (String.length s - i - 1))
+  with Not_found ->
+    None
+
 let or_fail = function
   | `Ok y -> return y
   | `Error (`Unknown msg) -> fail (Failure msg)
@@ -123,11 +130,16 @@ module Flow = struct
   let close flow return_code =
     let msg = Cstruct.create sizeof_exit_status in
     set_exit_status_return_code msg (Int64.of_int return_code);
-    send flow.dstream ~ty:`Data_exit_code msg >>= function
-    | `Ok () | `Eof -> disconnect flow.dstream
+    Lwt.finalize
+      (fun () ->
+        send flow.dstream ~ty:`Data_stdout (Cstruct.create 0) >>= or_fail >>= fun () ->
+        send flow.dstream ~ty:`Data_exit_code msg >|= function
+        | `Ok () | `Eof -> ()
+      )
+      (fun () -> disconnect flow.dstream)
 end
 
-type handler = string -> Flow.flow -> int Lwt.t
+type handler = user:string -> string -> Flow.flow -> int Lwt.t
 
 let send_hello t =
   let hello = Cstruct.create sizeof_peer_info in
@@ -142,18 +154,11 @@ let recv_hello t =
   | `Ok (`Hello, resp) -> return (get_peer_info_version resp)
   | `Ok (ty, _) -> fail (error "Expected msg_hello, got %ld" (int_of_type ty))
 
-let exn_to_return_code ~cmd fn =
-  Lwt.catch fn
-    (fun ex ->
-      Log.info "Uncaught exception handling %S: %s"
-        cmd (Printexc.to_string ex) >|= fun () -> 255
-    )
-
-let with_flow t ~ty ~port fn cmd =
-  Vchan_xen.client ~domid:t.domid ~port () >>= fun vchan ->
+let with_flow ~ty ~domid ~port fn =
+  Vchan_xen.client ~domid ~port () >>= fun vchan ->
   let client = {
     vchan;
-    domid = t.domid;
+    domid = domid;
     buffer = Cstruct.create 0;
     lock = Lwt_mutex.create ();
   } in
@@ -162,26 +167,44 @@ let with_flow t ~ty ~port fn cmd =
   | _ ->
   send_hello client >>= fun () ->
   let flow = Flow.create ~ty client in
-  exn_to_return_code ~cmd (fun () -> fn cmd flow) >>= fun return_code ->
-  Log.info "Command %S finished; returning exit status %d" cmd return_code >>= fun () ->
-  Flow.close flow return_code
+  Lwt.try_bind
+    (fun () -> fn flow)
+    (fun return_code -> Flow.close flow return_code)
+    (fun ex ->
+      Log.warn "Uncaught exception: %s" (Printexc.to_string ex) >>= fun () ->
+      Flow.close flow 255
+    )
 
 let port_of_int i =
   match Int32.to_string i |> Vchan.Port.of_string with
   | `Ok p -> p
   | `Error msg -> failwith msg
 
+let parse_cmdline cmd =
+  let cmd = Cstruct.to_string cmd in
+  if cmd.[String.length cmd - 1] <> '\x00' then
+    fail (error "Command not null-terminated")
+  else (
+    let cmd = String.sub cmd 0 (String.length cmd - 1) in
+    match cmd |> split ':' with
+    | None -> fail (error "Missing ':' in %S" cmd)
+    | Some (user, cmd) -> return (user, cmd)
+  )
+
 let exec t ~ty ~handler msg =
   Lwt.async (fun () ->
-    begin if get_exec_params_connect_domain msg <> Int32.of_int t.domid then
-      Log.warn "Suspicious connect_domain from client"
-    else return () end >>= fun () ->
+    let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
-    let cmd = Cstruct.shift msg sizeof_exec_params |> Cstruct.to_string in
-    assert (cmd.[String.length cmd - 1] = '\x00');
-    let cmd = String.sub cmd 0 (String.length cmd - 1) in
-    Log.info "Executing command %S..." cmd >>= fun () ->
-    Lwt.finalize (fun () -> with_flow t ~ty ~port handler cmd)
+    let cmdline = Cstruct.shift msg sizeof_exec_params in
+    Lwt.finalize
+      (fun () ->
+        with_flow ~ty ~domid ~port (fun flow ->
+          parse_cmdline cmdline >>= fun (user, cmd) ->
+          handler ~user cmd flow >>= fun return_code ->
+          Log.info "Command %S finished; returning exit status %d" cmd return_code >>= fun () ->
+          return return_code
+        )
+      )
       (fun () ->
         let reply = Cstruct.sub msg 0 sizeof_exec_params in
         send t ~ty:`Connection_terminated reply >|= function
