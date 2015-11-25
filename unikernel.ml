@@ -1,5 +1,10 @@
 open Lwt
 
+let gui_agent_port =
+  match Vchan.Port.of_string "6000" with
+  | `Error msg -> failwith msg
+  | `Ok port -> port
+
 module Main (C: V1_LWT.CONSOLE) = struct
   let exit_requested, exit_waker = Lwt.wait ()
 
@@ -26,6 +31,8 @@ module Main (C: V1_LWT.CONSOLE) = struct
     Log.reporter := (fun lvl msg -> C.log_s c (lvl ^ ": " ^ msg));
     Qrexec.connect ~handler ~domid:0 () >>= fun (qrexec, client_version) ->
     Log.info "Handshake done; client version is %ld" client_version >>= fun () ->
+    Log.info "Starting gui-agent; waiting for client..." >>= fun () ->
+    Vchan_xen.server ~domid:0 ~port:gui_agent_port () >>= fun _gui ->
     exit_requested >>= fun () ->
     Log.info "Closing server..." >>= fun () ->
     Qrexec.disconnect qrexec
