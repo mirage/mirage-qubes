@@ -6,8 +6,6 @@ let gui_agent_port =
   | `Ok port -> port
 
 module Main (C: V1_LWT.CONSOLE) = struct
-  let exit_requested, exit_waker = Lwt.wait ()
-
   let echo ~user flow =
     Qrexec.Flow.writef flow "Hi %s! Please enter a string:" user >>= fun () ->
     Qrexec.Flow.read_line flow >>= function
@@ -15,25 +13,22 @@ module Main (C: V1_LWT.CONSOLE) = struct
     | `Ok input ->
     Qrexec.Flow.writef flow "You wrote %S. Bye." input >|= fun () -> 0
 
-  let handler ~user cmd flow =
+  let handler qrexec ~user cmd flow =
     (* Write a message to the client and return an exit status of 1. *)
     let error fmt =
       fmt |> Printf.ksprintf @@ fun s ->
       Qrexec.Flow.ewritef flow "%s [while processing %S]" s cmd >|= fun () -> 1 in
     match cmd with
-    | "quit" ->
-        if user = "root" then (Lwt.wakeup exit_waker (); return 0)
-        else error "Permission denied"
+    | "quit" when user = "root" -> Qrexec.disconnect qrexec >|= fun () -> 0
+    | "quit" -> error "Permission denied"
     | "echo" -> echo ~user flow
     | cmd -> error "Unknown command %S" cmd
 
   let start c =
     Log.reporter := (fun lvl msg -> C.log_s c (lvl ^ ": " ^ msg));
-    Qrexec.connect ~handler ~domid:0 () >>= fun (qrexec, client_version) ->
-    Log.info "Handshake done; client version is %ld" client_version >>= fun () ->
+    Qrexec.connect ~domid:0 () >>= fun qrexec ->
+    let agent_listener = Qrexec.listen qrexec (handler qrexec) in
     Log.info "Starting gui-agent; waiting for client..." >>= fun () ->
     Vchan_xen.server ~domid:0 ~port:gui_agent_port () >>= fun _gui ->
-    exit_requested >>= fun () ->
-    Log.info "Closing server..." >>= fun () ->
-    Qrexec.disconnect qrexec
+    agent_listener
 end

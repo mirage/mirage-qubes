@@ -30,9 +30,15 @@ type handler = user:string -> string -> Flow.flow -> int Lwt.t
     the remote client sends a MSG_EXEC_CMDLINE request. The "exit code" from the handler
     is returned to the client. *)
 
-val connect : domid:int -> handler:handler -> unit -> (t * int32) Lwt.t
-(** Start listening on a new vchan. Place the endpoint information in XenStore and wait
-    for the client to connect.
-    On return, the channel is listening for incoming requests. *)
+val connect : domid:int -> unit -> t Lwt.t
+(** [connect ~domid ()] is a qrexec agent to which a client in [domid] has connected.
+    Internally, it creates a server endpoint and places the endpoint information
+    in XenStore, then waits for a client to connect. *)
+
+val listen :  t -> handler -> unit Lwt.t
+(** [listen t handler] is a thread that reads incoming requests from [t]
+    and handles each one asynchronously with [handler]. The loop ends if
+    the client disconnects. *)
 
 val disconnect : t -> unit Lwt.t
+(** Close the underlying vchan. This will cause any listening thread to finish. *)

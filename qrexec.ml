@@ -212,18 +212,19 @@ let exec t ~ty ~handler msg =
       )
   )
 
-let listen ~handler t =
+let listen t handler =
   let rec loop () =
     recv t >>= function
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
     | `Ok (ty, _) ->
         Log.info "Unknown qrexec message type received: %ld" (int_of_type ty) >>= loop
-    | `Eof -> return `Done in
-  loop () >>= fun `Done ->
-  Log.info "Stopping qrexec listen loop"
+    | `Eof ->
+        Log.info "qrexec-agent: connection closed; ending listen loop" >|= fun () ->
+        `Done in
+  loop () >|= fun `Done -> ()
 
-let connect ~domid ~(handler:handler) () =
+let connect ~domid () =
   Log.info "Starting qrexec agent; waiting for client..." >>= fun () ->
   Vchan_xen.server ~domid ~port:vchan_base_port () >>= fun vchan ->
   Log.info "Got connection" >>= fun () ->
@@ -235,5 +236,5 @@ let connect ~domid ~(handler:handler) () =
   } in
   send_hello t >>= fun () ->
   recv_hello t >>= fun version ->
-  Lwt.async (fun () -> listen ~handler t);
-  return (t, version)
+  Log.info "qrexec-agent: client connected, using protocol version %ld" version >>= fun () ->
+  return t
