@@ -5,7 +5,9 @@ let gui_agent_port =
   | `Error msg -> failwith msg
   | `Ok port -> port
 
-module Main (C: V1_LWT.CONSOLE) = struct
+module Main (C: V1_LWT.CONSOLE) (Clock : V1.CLOCK) = struct
+  let start_time = Clock.time ()
+
   let echo ~user flow =
     Qrexec.Flow.writef flow "Hi %s! Please enter a string:" user >>= fun () ->
     Qrexec.Flow.read_line flow >>= function
@@ -39,8 +41,10 @@ module Main (C: V1_LWT.CONSOLE) = struct
           fail Xs_protocol.Eagain
     )
 
-  let start c =
-    Log.reporter := (fun lvl msg -> C.log_s c (lvl ^ ": " ^ msg));
+  let start c () =
+    Log.reporter := (fun lvl msg ->
+      let now = Clock.time () |> Gmtime.gmtime |> Gmtime.to_string in
+      C.log_s c (Printf.sprintf "%s: %s: %s" now lvl msg));
     Qrexec.connect ~domid:0 () >>= fun qrexec ->
     let agent_listener = Qrexec.listen qrexec (handler qrexec) in
     Log.info "Starting gui-agent; waiting for client..." >>= fun () ->
@@ -49,5 +53,7 @@ module Main (C: V1_LWT.CONSOLE) = struct
       wait_for_shutdown () >>= fun `Poweroff ->
       Qrexec.disconnect qrexec
     );
+    Log.info "Unikernel booted in %.3f s (CPU time used: %.3f s)"
+      (Clock.time () -. start_time) (Sys.time ()) >>= fun () ->
     agent_listener
 end

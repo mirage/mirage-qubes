@@ -8,7 +8,7 @@ let main =
   foreign
     ~libraries:vchan_libraries
     ~packages:["vchan"; "cstruct"]
-    "Unikernel.Main" (console @-> job)
+    "Unikernel.Main" (console @-> clock @-> job)
 
 let () =
-  register "qubes-test" [main $ default_console]
+  register "qubes-test" [main $ default_console $ default_clock]
