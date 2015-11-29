@@ -1,3 +1,3 @@
 S .
 B _build
-PKG vchan.xen lwt
+PKG vchan.xen lwt mirage

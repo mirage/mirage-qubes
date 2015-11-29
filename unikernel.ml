@@ -43,15 +43,20 @@ module Main (C: V1_LWT.CONSOLE) (Clock : V1.CLOCK) = struct
       let now = Clock.time () |> Gmtime.gmtime |> Gmtime.to_string in
       C.log c (Printf.sprintf "%s: %s: %s" now lvl msg)
     );
-    (* Start qrexec agent and GUI agent in parallel *)
+    (* Start qrexec agent, GUI agent and QubesDB agent in parallel *)
     let qrexec = Qrexec.connect ~domid:0 () in
     let gui = Gui.connect ~domid:0 () in
+    let qubesDB = QubesDB.connect ~domid:0 () in
     (* Wait for clients to connect *)
     qrexec >>= fun qrexec ->
     let agent_listener = Qrexec.listen qrexec (handler qrexec) in
     gui >>= fun _gui ->
+    qubesDB >>= fun qubesDB ->
     Log.info "agents connected in %.3f s (CPU time used since boot: %.3f s)"
       (Clock.time () -. start_time) (Sys.time ());
+    begin match QubesDB.get qubesDB "/qubes-ip" with
+    | None -> Log.info "No IP address assigned"
+    | Some ip -> Log.info "My IP address is %S" ip end;
     Lwt.async (fun () ->
       wait_for_shutdown () >>= fun `Poweroff ->
       Qrexec.disconnect qrexec

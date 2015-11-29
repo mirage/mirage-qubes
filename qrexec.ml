@@ -1,7 +1,7 @@
 (* Copyright (C) 2015, Thomas Leonard
    See the README file for details. *)
 
-open Lwt
+open Lwt.Infix
 open Qubes_protocol.Qrexec
 open Utils
 

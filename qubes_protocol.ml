@@ -94,3 +94,35 @@ module GUI = struct
     let body_size_from_header _h = raise (error "GUI: body_size_from_header: TODO")
   end
 end
+
+module QubesDB = struct
+  cstruct msg_header {
+    uint8_t ty;
+    uint8_t path[64];
+    uint8_t padding[3];
+    uint32_t data_len;
+    (* rest of message is data *)
+  } as little_endian
+
+  cenum qdb_msg {
+    QDB_CMD_READ;
+    QDB_CMD_WRITE;
+    QDB_CMD_MULTIREAD;
+    QDB_CMD_LIST;
+    QDB_CMD_RM;
+    QDB_CMD_WATCH;
+    QDB_CMD_UNWATCH;
+    QDB_RESP_OK;
+    QDB_RESP_ERROR_NOENT;
+    QDB_RESP_ERROR;
+    QDB_RESP_READ;
+    QDB_RESP_MULTIREAD; 
+    QDB_RESP_LIST; 
+    QDB_RESP_WATCH;
+  } as uint8_t
+
+  module Framing = struct
+    let header_size = sizeof_msg_header
+    let body_size_from_header h = get_msg_header_data_len h |> Int32.to_int
+  end
+end
