@@ -103,7 +103,7 @@ module Flow = struct
 
   let close flow return_code =
     let msg = Cstruct.create sizeof_exit_status in
-    set_exit_status_return_code msg (Int64.of_int return_code);
+    set_exit_status_return_code msg (Int32.of_int return_code);
     Lwt.finalize
       (fun () ->
         send flow.dstream ~ty:`Data_stdout (Cstruct.create 0) >>= or_fail >>= fun () ->

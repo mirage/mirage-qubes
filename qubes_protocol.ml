@@ -25,7 +25,7 @@ module Qrexec = struct
 
   cstruct exit_status {
     (* XXX: size of message depends on native int size?? *)
-    uint64_t return_code;
+    uint32_t return_code;
   } as little_endian
 
   type msg_type =
