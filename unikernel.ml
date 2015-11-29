@@ -1,3 +1,6 @@
+(* Copyright (C) 2015, Thomas Leonard
+   See the README file for details. *)
+
 open Lwt
 
 module Main (C: V1_LWT.CONSOLE) (Clock : V1.CLOCK) = struct

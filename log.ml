@@ -1,3 +1,6 @@
+(* Copyright (C) 2015, Thomas Leonard
+   See the README file for details. *)
+
 let boot_reporter lvl s = Printf.printf "%s: %s\n%!" lvl s
 let reporter = ref boot_reporter
 

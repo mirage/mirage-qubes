@@ -1,3 +1,6 @@
+(* Copyright (C) 2015, Thomas Leonard
+   See the README file for details. *)
+
 (** QubesOS qrexec agent protocol.
     See: https://www.qubes-os.org/doc/qrexec3/ *)
 

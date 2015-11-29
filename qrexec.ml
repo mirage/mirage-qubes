@@ -1,5 +1,15 @@
+(* Copyright (C) 2015, Thomas Leonard
+   See the README file for details. *)
+
 open Lwt
-open Qrexec_protocol
+open Qubes_protocol.Qrexec
+open Utils
+
+module QV = Qvchan.Make(Framing)
+
+type t = QV.t
+
+let (>>!=) = Qvchan.(>>!=)
 
 let split chr s =
   try
@@ -13,64 +23,28 @@ let or_fail = function
   | `Error (`Unknown msg) -> fail (Failure msg)
   | `Eof -> fail End_of_file
 
-let (>>!=) x f =
-  x >>= function
-  | `Ok y -> f y
-  | `Error (`Unknown msg) -> fail (Failure msg)
-  | `Eof -> return `Eof
-
-type t = {
-  domid : int;
-  vchan : Vchan_xen.flow;
-  mutable buffer : Cstruct.t;
-  lock : Lwt_mutex.t;
-}
-
-let error fmt =
-  let err s = Failure s in
-  Printf.ksprintf err fmt
-
 let disconnect t =
-  Vchan_xen.close t.vchan
+  QV.disconnect t
 
 let vchan_base_port =
   match Vchan.Port.of_string "512" with
   | `Error msg -> failwith msg
   | `Ok port -> port
 
-let rec read_exactly t size =
-  let avail = Cstruct.len t.buffer in
-  if avail >= size then (
-    let retval = Cstruct.sub t.buffer 0 size in
-    t.buffer <- Cstruct.shift t.buffer size;
-    return (`Ok retval)
-  ) else (
-    Vchan_xen.read t.vchan >>!= fun buf ->
-    t.buffer <- Cstruct.append t.buffer buf;
-    read_exactly t size
-  )
-
-let recv t =
-  Lwt_mutex.with_lock t.lock (fun () ->
-    read_exactly t sizeof_msg_header >>!= fun hdr ->
-    read_exactly t (Int32.to_int (get_msg_header_len hdr)) >>!= fun body ->
-    let ty = get_msg_header_ty hdr |> type_of_int in
-    return (`Ok (ty, body))
-  )
-
-let send t ~ty msg =
+let send t ~ty data =
   let hdr = Cstruct.create sizeof_msg_header in
   set_msg_header_ty hdr (int_of_type ty);
-  set_msg_header_len hdr (Cstruct.len msg |> Int32.of_int);
-  Lwt_mutex.with_lock t.lock (fun () ->
-    Vchan_xen.writev t.vchan [hdr; msg] >>= function
-    | `Error (`Unknown msg) -> fail (Failure msg)
-    | `Ok () | `Eof as r -> return r
-  )
+  set_msg_header_len hdr (Cstruct.len data |> Int32.of_int);
+  QV.send t [hdr; data]
+
+let recv t =
+  QV.recv t >>!= fun (hdr, data) ->
+  let ty = get_msg_header_ty hdr |> type_of_int in
+  return (`Ok (ty, data))
 
 module Flow = struct
   type flow = {
-    dstream : t;
+    dstream : QV.t;
     mutable stdin_buf : Cstruct.t;
     ty : [`Just_exec | `Exec_cmdline];
   }
@@ -155,13 +129,7 @@ let recv_hello t =
   | `Ok (ty, _) -> fail (error "Expected msg_hello, got %ld" (int_of_type ty))
 
 let with_flow ~ty ~domid ~port fn =
-  Vchan_xen.client ~domid ~port () >>= fun vchan ->
-  let client = {
-    vchan;
-    domid = domid;
-    buffer = Cstruct.create 0;
-    lock = Lwt_mutex.create ();
-  } in
+  QV.client ~domid ~port () >>= fun client ->
   recv_hello client >>= function
   | version when version <> 2l -> fail (error "Unsupported qrexec version %ld" version)
   | _ ->
@@ -227,13 +195,7 @@ let listen t handler =
 
 let connect ~domid () =
   Log.info "qrexec-agent: waiting for client...";
-  Vchan_xen.server ~domid ~port:vchan_base_port () >>= fun vchan ->
-  let t = {
-    vchan;
-    domid;
-    buffer = Cstruct.create 0;
-    lock = Lwt_mutex.create ();
-  } in
+  QV.server ~domid ~port:vchan_base_port () >>= fun t ->
   send_hello t >>= fun () ->
   recv_hello t >>= fun version ->
   Log.info "qrexec-agent: client connected, using protocol version %ld" version;

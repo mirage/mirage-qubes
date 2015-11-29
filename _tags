@@ -1,2 +1,2 @@
 not <main.*>: warn(A), strict_sequence
-<qrexec_protocol.*>: package(cstruct.syntax)
+<qubes_protocol.*>: package(cstruct.syntax)
