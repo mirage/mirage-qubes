@@ -171,7 +171,7 @@ let with_flow ~ty ~domid ~port fn =
     (fun () -> fn flow)
     (fun return_code -> Flow.close flow return_code)
     (fun ex ->
-      Log.warn "Uncaught exception: %s" (Printexc.to_string ex) >>= fun () ->
+      Log.warn "Uncaught exception: %s" (Printexc.to_string ex);
       Flow.close flow 255
     )
 
@@ -201,7 +201,7 @@ let exec t ~ty ~handler msg =
         with_flow ~ty ~domid ~port (fun flow ->
           parse_cmdline cmdline >>= fun (user, cmd) ->
           handler ~user cmd flow >>= fun return_code ->
-          Log.info "Command %S finished; returning exit status %d" cmd return_code >>= fun () ->
+          Log.info "qrexec-agent: %S returned exit status %d" cmd return_code;
           return return_code
         )
       )
@@ -218,16 +218,16 @@ let listen t handler =
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
     | `Ok (ty, _) ->
-        Log.info "Unknown qrexec message type received: %ld" (int_of_type ty) >>= loop
+        Log.info "Unknown qrexec message type received: %ld" (int_of_type ty);
+        loop ()
     | `Eof ->
-        Log.info "qrexec-agent: connection closed; ending listen loop" >|= fun () ->
-        `Done in
+        Log.info "qrexec-agent: connection closed; ending listen loop";
+        return `Done in
   loop () >|= fun `Done -> ()
 
 let connect ~domid () =
-  Log.info "Starting qrexec agent; waiting for client..." >>= fun () ->
+  Log.info "qrexec-agent: waiting for client...";
   Vchan_xen.server ~domid ~port:vchan_base_port () >>= fun vchan ->
-  Log.info "Got connection" >>= fun () ->
   let t = {
     vchan;
     domid;
@@ -236,5 +236,5 @@ let connect ~domid () =
   } in
   send_hello t >>= fun () ->
   recv_hello t >>= fun version ->
-  Log.info "qrexec-agent: client connected, using protocol version %ld" version >>= fun () ->
+  Log.info "qrexec-agent: client connected, using protocol version %ld" version;
   return t

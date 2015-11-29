@@ -1,4 +1,4 @@
-let boot_reporter lvl s = Printf.printf "%s: %s\n%!" lvl s; Lwt.return ()
+let boot_reporter lvl s = Printf.printf "%s: %s\n%!" lvl s
 let reporter = ref boot_reporter
 
 let info fmt =

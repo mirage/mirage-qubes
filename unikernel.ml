@@ -1,13 +1,6 @@
 open Lwt
 
-let gui_agent_port =
-  match Vchan.Port.of_string "6000" with
-  | `Error msg -> failwith msg
-  | `Ok port -> port
-
 module Main (C: V1_LWT.CONSOLE) (Clock : V1.CLOCK) = struct
-  let start_time = Clock.time ()
-
   let echo ~user flow =
     Qrexec.Flow.writef flow "Hi %s! Please enter a string:" user >>= fun () ->
     Qrexec.Flow.read_line flow >>= function
@@ -37,23 +30,28 @@ module Main (C: V1_LWT.CONSOLE) (Clock : V1.CLOCK) = struct
       | "poweroff" -> return `Poweroff
       | "" -> fail Xs_protocol.Eagain
       | state ->
-          Log.info "Unknown power state %S" state >>= fun () ->
+          Log.info "Unknown power state %S" state;
           fail Xs_protocol.Eagain
     )
 
   let start c () =
+    let start_time = Clock.time () in
     Log.reporter := (fun lvl msg ->
       let now = Clock.time () |> Gmtime.gmtime |> Gmtime.to_string in
-      C.log_s c (Printf.sprintf "%s: %s: %s" now lvl msg));
-    Qrexec.connect ~domid:0 () >>= fun qrexec ->
+      C.log c (Printf.sprintf "%s: %s: %s" now lvl msg)
+    );
+    (* Start qrexec agent and GUI agent in parallel *)
+    let qrexec = Qrexec.connect ~domid:0 () in
+    let gui = Gui.connect ~domid:0 () in
+    (* Wait for clients to connect *)
+    qrexec >>= fun qrexec ->
     let agent_listener = Qrexec.listen qrexec (handler qrexec) in
-    Log.info "Starting gui-agent; waiting for client..." >>= fun () ->
-    Vchan_xen.server ~domid:0 ~port:gui_agent_port () >>= fun _gui ->
+    gui >>= fun _gui ->
+    Log.info "agents connected in %.3f s (CPU time used since boot: %.3f s)"
+      (Clock.time () -. start_time) (Sys.time ());
     Lwt.async (fun () ->
       wait_for_shutdown () >>= fun `Poweroff ->
       Qrexec.disconnect qrexec
     );
-    Log.info "Unikernel booted in %.3f s (CPU time used: %.3f s)"
-      (Clock.time () -. start_time) (Sys.time ()) >>= fun () ->
     agent_listener
 end
