@@ -96,14 +96,6 @@ module GUI = struct
 end
 
 module QubesDB = struct
-  cstruct msg_header {
-    uint8_t ty;
-    uint8_t path[64];
-    uint8_t padding[3];
-    uint32_t data_len;
-    (* rest of message is data *)
-  } as little_endian
-
   cenum qdb_msg {
     QDB_CMD_READ;
     QDB_CMD_WRITE;
@@ -120,6 +112,22 @@ module QubesDB = struct
     QDB_RESP_LIST; 
     QDB_RESP_WATCH;
   } as uint8_t
+
+  cstruct msg_header {
+    uint8_t ty;
+    uint8_t path[64];
+    uint8_t padding[3];
+    uint32_t data_len;
+    (* rest of message is data *)
+  } as little_endian
+
+  let make_msg_header ~ty ~path ~data_len =
+    let msg = Cstruct.create sizeof_msg_header in
+    set_msg_header_ty msg (qdb_msg_to_int ty);
+    set_fixed_string (get_msg_header_path msg) path;
+    Cstruct.memset (get_msg_header_padding msg) 0;
+    set_msg_header_data_len msg (Int32.of_int data_len);
+    msg
 
   module Framing = struct
     let header_size = sizeof_msg_header

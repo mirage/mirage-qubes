@@ -25,20 +25,9 @@ let qubesdb_vchan_port =
 
 let empty = Cstruct.create 0
 
-(* Copy str to the start of buffer and fill the rest with zeros *)
-let set_fixed_string buffer str =
-  let len = String.length str in
-  Cstruct.blit_from_string str 0 buffer 0 len;
-  Cstruct.memset (Cstruct.shift buffer len) 0
-
 let send t ?(path="") ?(data=empty) ty =
-  let data_len = Cstruct.len data in
-  let msg = Cstruct.create (sizeof_msg_header + data_len) in
-  set_msg_header_ty msg (qdb_msg_to_int ty);
-  set_fixed_string (get_msg_header_path msg) path;
-  set_msg_header_data_len msg (Int32.of_int data_len);
-  Cstruct.blit data 0 msg sizeof_msg_header data_len;
-  QV.send t [msg]
+  let hdr = make_msg_header ~ty ~path ~data_len:(Cstruct.len data) in
+  QV.send t [hdr; data]
 
 let recv t =
   QV.recv t >>!= fun (hdr, data) ->
