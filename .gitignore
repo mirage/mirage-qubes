@@ -1,9 +1,3 @@
-Makefile
 _build/
-log
-key_gen.ml
-main.ml
-main.native
-mir-qubes-test
-qubes-test.xl.in
-qubes-test_libvirt.xml
+setup.data
+setup.log

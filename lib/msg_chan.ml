@@ -2,11 +2,6 @@
    See the README file for details. *)
 
 open Lwt
-open Qubes_protocol
-
-type 'a or_eof =
-  [ `Ok of 'a
-  | `Eof ]
 
 let (>>!=) x f =
   x >>= function
@@ -14,7 +9,7 @@ let (>>!=) x f =
   | `Error (`Unknown msg) -> fail (Failure msg)
   | `Eof -> return `Eof
 
-module Make (F : FRAMING) = struct
+module Make (F : Formats.FRAMING) = struct
   type t = {
     domid : int;
     vchan : Vchan_xen.flow;

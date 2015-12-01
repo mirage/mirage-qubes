@@ -1,0 +1,26 @@
+opam-version: "1.2"
+maintainer:   "talex@gmail.com"
+authors:      ["Thomas Leonard"]
+license:      "BSD-2-Clause"
+homepage:     "https://github.com/talex5/mirage-qubes"
+homepage:     "https://github.com/talex5/mirage-qubes/issues"
+dev-repo:     "https://github.com/talex5/mirage-qubes.git"
+
+build: [
+  ["./configure"]
+  [make]
+]
+install: [make "install"]
+remove: ["ocamlfind" "remove" "mirage-qubes"]
+
+depends: [
+  "ocamlfind" {build}
+  "cstruct"
+  "vchan"
+  "xen-evtchn"
+  "xen-gnt"
+  "mirage-xen"
+  "lwt"
+  "mirage-types"
+]
+available: [ocaml-version >= "4.01.0"]
