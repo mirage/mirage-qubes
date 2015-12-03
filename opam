@@ -22,5 +22,6 @@ depends: [
   "mirage-xen"
   "lwt"
   "mirage-types"
+  "logs"
 ]
 available: [ocaml-version >= "4.01.0"]

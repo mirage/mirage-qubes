@@ -2,12 +2,6 @@ type 'a or_eof =
   [ `Ok of 'a
   | `Eof ]
 
-module type LOG = sig
-  val debug : ('a, unit, string, unit) format4 -> 'a
-  val info : ('a, unit, string, unit) format4 -> 'a
-  val warn : ('a, unit, string, unit) format4 -> 'a
-end
-
 module type MSG_CHAN = sig
   type t
 

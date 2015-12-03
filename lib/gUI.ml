@@ -7,6 +7,9 @@ open Utils
 
 module QV = Msg_chan.Make(Framing)
 
+let src = Logs.Src.create "qubes.gui" ~doc:"Qubes GUId agent"
+module Log = (val Logs.src_log src : Logs.LOG)
+
 let qubes_gui_protocol_version_linux = 0x10000l
 
 let gui_agent_port =
@@ -14,22 +17,20 @@ let gui_agent_port =
   | `Error msg -> failwith msg
   | `Ok port -> port
 
-module Make(Log : S.LOG) = struct
-  type t = QV.t
+type t = QV.t
 
-  let connect ~domid () =
-    Log.info "waiting for client...";
-    QV.server ~domid ~port:gui_agent_port () >>= fun gui ->
-    let version = Cstruct.create sizeof_gui_protocol_version in
-    set_gui_protocol_version_version version qubes_gui_protocol_version_linux;
-    QV.send gui [version] >>= function
-    | `Eof -> Lwt.fail (error "End-of-file sending protocol version")
-    | `Ok () ->
-    QV.recv_fixed gui sizeof_xconf >>= function
-    | `Eof -> Lwt.fail (error "End-of-file getting X configuration")
-    | `Ok conf ->
-    let w = get_xconf_w conf in
-    let h = get_xconf_h conf in
-    Log.info "client connected (screen size: %ldx%ld)" w h;
-    Lwt.return gui
-end
+let connect ~domid () =
+  Log.info "waiting for client..." Logs.unit;
+  QV.server ~domid ~port:gui_agent_port () >>= fun gui ->
+  let version = Cstruct.create sizeof_gui_protocol_version in
+  set_gui_protocol_version_version version qubes_gui_protocol_version_linux;
+  QV.send gui [version] >>= function
+  | `Eof -> Lwt.fail (error "End-of-file sending protocol version")
+  | `Ok () ->
+  QV.recv_fixed gui sizeof_xconf >>= function
+  | `Eof -> Lwt.fail (error "End-of-file getting X configuration")
+  | `Ok conf ->
+  let w = get_xconf_w conf in
+  let h = get_xconf_h conf in
+  Log.info "client connected (screen size: %ldx%ld)" (fun f -> f w h);
+  Lwt.return gui

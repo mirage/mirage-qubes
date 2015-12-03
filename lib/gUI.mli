@@ -3,8 +3,6 @@
 
 (** The Qubes GUI agent *)
 
-module Make(Log : S.LOG) : sig
-  type t
+type t
 
-  val connect : domid:int -> unit -> t Lwt.t
-end
+val connect : domid:int -> unit -> t Lwt.t
