@@ -57,12 +57,25 @@ let full_db_sync t =
 
 let listen t =
   let rec loop () =
+    let ack path =
+      send t.vchan ~path QDB_RESP_OK >|= function
+      | `Eof -> raise (error "End-of-file sending OK")
+      | `Ok () -> () in
     recv t.vchan >>= function
     | QDB_CMD_WRITE, path, value ->
         Log.info "write %S = %S" (fun f -> f path value);
-        loop ()
+        ack path >>= loop
     | QDB_RESP_OK, path, _ ->
         Log.info "OK %S" (fun f -> f path);
+        loop ()
+    | QDB_CMD_RM, path, _ ->
+        Log.info "rm %S" (fun f -> f path);
+        if not (Hashtbl.mem t.store path) then
+          raise (error "%S not found (fatal database de-synchronization)" path);
+        Hashtbl.remove t.store path;
+        ack path >>= loop
+    | QDB_RESP_ERROR, path, _ ->
+        Log.err "Error from peer (for %S)" (fun f -> f path);
         loop ()
     | ty, _, _ ->
         fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
