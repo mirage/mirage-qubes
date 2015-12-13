@@ -55,6 +55,24 @@ let full_db_sync t =
   loop () >>= fun `Done ->
   return ()
 
+let rm t path =
+  let len = String.length path in
+  if len > 0 && path.[len - 1] = '/' then (
+    (* Delete everything with this prefix *)
+    let keys_to_remove =
+      Hashtbl.fold (fun key _ acc ->
+        if starts_with key path then (
+          Log.info "(rm %S)" (fun f -> f key);
+          key :: acc
+        ) else acc
+      ) t.store [] in
+    keys_to_remove |> List.iter (Hashtbl.remove t.store)
+  ) else (
+    if not (Hashtbl.mem t.store path) then
+      Log.err "%S not found (fatal database de-synchronization)" (fun f -> f path);
+    Hashtbl.remove t.store path;
+  )
+
 let listen t =
   let rec loop () =
     let ack path =
@@ -64,15 +82,14 @@ let listen t =
     recv t.vchan >>= function
     | QDB_CMD_WRITE, path, value ->
         Log.info "write %S = %S" (fun f -> f path value);
+        Hashtbl.replace t.store path value;
         ack path >>= loop
     | QDB_RESP_OK, path, _ ->
         Log.info "OK %S" (fun f -> f path);
         loop ()
     | QDB_CMD_RM, path, _ ->
         Log.info "rm %S" (fun f -> f path);
-        if not (Hashtbl.mem t.store path) then
-          raise (error "%S not found (fatal database de-synchronization)" path);
-        Hashtbl.remove t.store path;
+        rm t path;
         ack path >>= loop
     | QDB_RESP_ERROR, path, _ ->
         Log.err "Error from peer (for %S)" (fun f -> f path);
