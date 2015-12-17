@@ -14,7 +14,8 @@ module Make (F : Formats.FRAMING) = struct
     domid : int;
     vchan : Vchan_xen.flow;
     mutable buffer : Cstruct.t;
-    lock : Lwt_mutex.t;
+    read_lock : Lwt_mutex.t;
+    write_lock : Lwt_mutex.t;
   }
 
   let rec read_exactly t size =
@@ -30,20 +31,20 @@ module Make (F : Formats.FRAMING) = struct
     )
 
   let recv t =
-    Lwt_mutex.with_lock t.lock (fun () ->
+    Lwt_mutex.with_lock t.read_lock (fun () ->
       read_exactly t F.header_size >>!= fun hdr ->
       read_exactly t (F.body_size_from_header hdr) >>!= fun body ->
       return (`Ok (hdr, body))
     )
 
   let recv_fixed t size =
-    Lwt_mutex.with_lock t.lock (fun () ->
+    Lwt_mutex.with_lock t.read_lock (fun () ->
       read_exactly t size >>!= fun body ->
       return (`Ok body)
     )
 
   let send t buffers =
-    Lwt_mutex.with_lock t.lock (fun () ->
+    Lwt_mutex.with_lock t.write_lock (fun () ->
       Vchan_xen.writev t.vchan buffers >>= function
       | `Error (`Unknown msg) -> fail (Failure msg)
       | `Ok () | `Eof as r -> return r
@@ -54,7 +55,8 @@ module Make (F : Formats.FRAMING) = struct
       vchan;
       domid;
       buffer = Cstruct.create 0;
-      lock = Lwt_mutex.create ();
+      read_lock = Lwt_mutex.create ();
+      write_lock = Lwt_mutex.create ();
     }
 
   let client ~domid ~port () =
@@ -62,7 +64,8 @@ module Make (F : Formats.FRAMING) = struct
       vchan;
       domid;
       buffer = Cstruct.create 0;
-      lock = Lwt_mutex.create ();
+      read_lock = Lwt_mutex.create ();
+      write_lock = Lwt_mutex.create ();
     }
 
   let disconnect t =
