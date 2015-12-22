@@ -48,7 +48,7 @@ let full_db_sync t =
     recv t.vchan >>= function
     | QDB_RESP_MULTIREAD, "", _ -> return `Done
     | QDB_RESP_MULTIREAD, path, data ->
-        Log.info "%S = %S" (fun f -> f path data);
+        Log.debug "%S = %S" (fun f -> f path data);
         Hashtbl.replace t.store path data;
         loop ()
     | ty, _, _ -> fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
@@ -62,7 +62,7 @@ let rm t path =
     let keys_to_remove =
       Hashtbl.fold (fun key _ acc ->
         if starts_with key path then (
-          Log.info "(rm %S)" (fun f -> f key);
+          Log.debug "(rm %S)" (fun f -> f key);
           key :: acc
         ) else acc
       ) t.store [] in
@@ -81,14 +81,14 @@ let listen t =
       | `Ok () -> () in
     recv t.vchan >>= function
     | QDB_CMD_WRITE, path, value ->
-        Log.info "write %S = %S" (fun f -> f path value);
+        Log.info "got update: %S = %S" (fun f -> f path value);
         Hashtbl.replace t.store path value;
         ack path >>= loop
     | QDB_RESP_OK, path, _ ->
-        Log.info "OK %S" (fun f -> f path);
+        Log.debug "OK %S" (fun f -> f path);
         loop ()
     | QDB_CMD_RM, path, _ ->
-        Log.info "rm %S" (fun f -> f path);
+        Log.info "got rm %S" (fun f -> f path);
         rm t path;
         ack path >>= loop
     | QDB_RESP_ERROR, path, _ ->
