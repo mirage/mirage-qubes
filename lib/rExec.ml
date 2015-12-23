@@ -132,18 +132,28 @@ let recv_hello t =
   | `Ok (ty, _) -> fail (error "Expected msg_hello, got %ld" (int_of_type ty))
 
 let with_flow ~ty ~domid ~port fn =
-  QV.client ~domid ~port () >>= fun client ->
-  recv_hello client >>= function
-  | version when version <> 2l -> fail (error "Unsupported qrexec version %ld" version)
-  | _ ->
-  send_hello client >>= fun () ->
-  let flow = Flow.create ~ty client in
   Lwt.try_bind
-    (fun () -> fn flow)
-    (fun return_code -> Flow.close flow return_code)
+    (fun () ->
+      QV.client ~domid ~port () >>= fun client ->
+      recv_hello client >>= function
+      | version when version <> 2l -> fail (error "Unsupported qrexec version %ld" version)
+      | _ ->
+      send_hello client >|= fun () ->
+      Flow.create ~ty client
+    )
+    (fun flow ->
+      Lwt.try_bind
+        (fun () -> fn flow)
+        (fun return_code -> Flow.close flow return_code)
+        (fun ex ->
+          Log.warn "uncaught exception: %s" (fun f -> f (Printexc.to_string ex));
+          Flow.close flow 255
+        )
+    )
     (fun ex ->
-      Log.warn "uncaught exception: %s" (fun f -> f (Printexc.to_string ex));
-      Flow.close flow 255
+      Log.warn "Error setting up vchan (domain %d, port %s): %s"
+        (fun f -> f domid (Vchan.Port.to_string port) (Printexc.to_string ex));
+      return ()
     )
 
 let port_of_int i =
@@ -167,6 +177,7 @@ let exec t ~ty ~handler msg =
     let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
     let cmdline = Cstruct.shift msg sizeof_exec_params in
+    Log.info "Execute %S" (fun f -> f (Cstruct.to_string cmdline));
     Lwt.finalize
       (fun () ->
         with_flow ~ty ~domid ~port (fun flow ->
