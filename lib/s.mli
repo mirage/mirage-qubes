@@ -11,6 +11,10 @@ module type MSG_CHAN = sig
   val recv_fixed : t -> int -> Cstruct.t or_eof Lwt.t
   (** Receive one packet of known size (no header) *)
 
+  val recv_raw : t -> Cstruct.t or_eof Lwt.t
+  (** Read a chunk of data from the stream.
+      Blocks if no data is available yet. *)
+
   val send : t -> Cstruct.t list -> unit or_eof Lwt.t
   (** Send one or more packets (takes the mutex) *)
 end

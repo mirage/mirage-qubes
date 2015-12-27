@@ -43,6 +43,17 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok body)
     )
 
+  let recv_raw t =
+    Lwt_mutex.with_lock t.read_lock @@ fun () ->
+    if Cstruct.len t.buffer > 0 then (
+      let data = t.buffer in
+      t.buffer <- Cstruct.create 0;
+      return (`Ok data)
+    ) else (
+      Vchan_xen.read t.vchan >>!= fun result ->
+      return (`Ok result)
+    )
+
   let send t buffers =
     Lwt_mutex.with_lock t.write_lock (fun () ->
       Vchan_xen.writev t.vchan buffers >>= function

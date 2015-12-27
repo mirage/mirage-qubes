@@ -6,3 +6,5 @@
 type t
 
 val connect : domid:int -> unit -> t Lwt.t
+
+val listen : t -> 'a Lwt.t

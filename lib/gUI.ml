@@ -34,3 +34,10 @@ let connect ~domid () =
   let h = get_xconf_h conf in
   Log.info "client connected (screen size: %ldx%ld)" (fun f -> f w h);
   Lwt.return gui
+
+let rec listen t =
+  QV.recv_raw t >>= function
+  | `Eof -> failwith "End-of-file from GUId in dom0"
+  | `Ok buf ->
+      Log.warn "Unexpected data: %S" (fun f -> f (Cstruct.to_string buf));
+      listen t
