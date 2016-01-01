@@ -13,4 +13,4 @@ Library qubes
   Findlibname:     mirage-qubes
   InternalModules: Utils, Formats
   Modules:         RExec, GUI, DB, Msg_chan, S
-  BuildDepends:    vchan.xen, vchan.lwt, cstruct, mirage-types, logs
+  BuildDepends:    vchan.xen, cstruct, mirage-types, logs
