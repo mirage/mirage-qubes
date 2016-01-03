@@ -109,9 +109,9 @@ module Flow = struct
     set_exit_status_return_code msg (Int32.of_int return_code);
     Lwt.finalize
       (fun () ->
-        send flow.dstream ~ty:`Data_stdout (Cstruct.create 0) >>= or_fail >>= fun () ->
-        send flow.dstream ~ty:`Data_exit_code msg >|= function
-        | `Ok () | `Eof -> ()
+        send flow.dstream ~ty:`Data_stdout (Cstruct.create 0) >>!= fun () ->
+        send flow.dstream ~ty:`Data_exit_code msg >>!= fun () ->
+        return (`Ok ())
       )
       (fun () -> disconnect flow.dstream)
 end
@@ -131,6 +131,11 @@ let recv_hello t =
   | `Ok (`Hello, resp) -> return (get_peer_info_version resp)
   | `Ok (ty, _) -> fail (error "Expected msg_hello, got %ld" (int_of_type ty))
 
+let try_close flow return_code =
+  Flow.close flow return_code >|= function
+  | `Ok () -> ()
+  | `Eof -> Log.warn "End-of-file while closing flow (with exit status %d)" (fun f -> f return_code)
+
 let with_flow ~ty ~domid ~port fn =
   Lwt.try_bind
     (fun () ->
@@ -144,10 +149,10 @@ let with_flow ~ty ~domid ~port fn =
     (fun flow ->
       Lwt.try_bind
         (fun () -> fn flow)
-        (fun return_code -> Flow.close flow return_code)
+        (fun return_code -> try_close flow return_code)
         (fun ex ->
           Log.warn "uncaught exception: %s" (fun f -> f (Printexc.to_string ex));
-          Flow.close flow 255
+          try_close flow 255
         )
     )
     (fun ex ->
