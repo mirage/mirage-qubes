@@ -44,9 +44,18 @@ end
 module type DB = sig
   type t
 
+  module KeyMap : Map.S with type key = string
+
   val read :  t -> string -> string option
   (** [read t key] is the last known value of [key]. *)
 
   val write :  t -> string -> string -> unit Lwt.t
   (** [write t key value] sets [key] to [value]. *)
+
+  val bindings : t -> string KeyMap.t
+  (** [bindings t] is the bindings of [t] at the time of the call. *)
+
+  val after : t -> string KeyMap.t -> string KeyMap.t Lwt.t
+  (** [after prev] waits until the current bindings are different to [prev]
+      and then returns the new bindings. *)
 end

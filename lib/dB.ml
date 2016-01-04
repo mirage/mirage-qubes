@@ -16,10 +16,17 @@ module QV = Msg_chan.Make(Framing)
 let src = Logs.Src.create "qubes.db" ~doc:"QubesDB agent"
 module Log = (val Logs.src_log src : Logs.LOG)
 
+module KeyMap = Map.Make(String)
+
 type t = {
   vchan : QV.t;
-  store : (string, string) Hashtbl.t;
+  notify : unit Lwt_condition.t;
+  mutable store : string KeyMap.t;
 }
+
+let update t bindings =
+  t.store <- bindings;
+  Lwt_condition.broadcast t.notify ()
 
 let qubesdb_vchan_port =
   match Vchan.Port.of_string "111" with
@@ -49,28 +56,29 @@ let full_db_sync t =
     | QDB_RESP_MULTIREAD, "", _ -> return `Done
     | QDB_RESP_MULTIREAD, path, data ->
         Log.debug "%S = %S" (fun f -> f path data);
-        Hashtbl.replace t.store path data;
+        t.store <- t.store |> KeyMap.add path data;
         loop ()
     | ty, _, _ -> fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
   loop () >>= fun `Done ->
+  Lwt_condition.broadcast t.notify ();  (* (probably not needed) *)
   return ()
 
 let rm t path =
   let len = String.length path in
   if len > 0 && path.[len - 1] = '/' then (
     (* Delete everything with this prefix *)
-    let keys_to_remove =
-      Hashtbl.fold (fun key _ acc ->
-        if starts_with key path then (
-          Log.debug "(rm %S)" (fun f -> f key);
-          key :: acc
-        ) else acc
-      ) t.store [] in
-    keys_to_remove |> List.iter (Hashtbl.remove t.store)
+    t.store
+    |> KeyMap.filter (fun key _ ->
+      if starts_with key path then (
+        Log.debug "(rm %S)" (fun f -> f key);
+        false
+      ) else true
+    )
+    |> update t
   ) else (
-    if not (Hashtbl.mem t.store path) then
+    if not (KeyMap.mem path t.store) then
       Log.err "%S not found (fatal database de-synchronization)" (fun f -> f path);
-    Hashtbl.remove t.store path;
+    t.store |> KeyMap.remove path |> update t
   )
 
 let listen t =
@@ -82,7 +90,7 @@ let listen t =
     recv t.vchan >>= function
     | QDB_CMD_WRITE, path, value ->
         Log.info "got update: %S = %S" (fun f -> f path value);
-        Hashtbl.replace t.store path value;
+        t.store |> KeyMap.add path value |> update t;
         ack path >>= loop
     | QDB_RESP_OK, path, _ ->
         Log.debug "OK %S" (fun f -> f path);
@@ -102,7 +110,7 @@ let connect ~domid () =
   Log.info "connecting to server..." Logs.unit;
   QV.client ~domid ~port:qubesdb_vchan_port () >>= fun vchan ->
   Log.info "connected" Logs.unit;
-  let t = {vchan; store = Hashtbl.create 20} in
+  let t = {vchan; store = KeyMap.empty; notify = Lwt_condition.create ()} in
   full_db_sync t >>= fun () ->
   Lwt.async (fun () -> listen t);
   Lwt.return t
@@ -110,9 +118,18 @@ let connect ~domid () =
 let disconnect t = QV.disconnect t.vchan
 
 let read t key =
-  try Some (Hashtbl.find t.store key)
+  try Some (KeyMap.find key t.store)
   with Not_found -> None
 
 let write t key value =
   send t.vchan QDB_CMD_WRITE ~path:key ~data:value >>!= fun () ->
   return ()
+
+let bindings t = t.store
+
+let rec after t prev =
+  let current = t.store in
+  if KeyMap.equal (=) prev current then (
+    Lwt_condition.wait t.notify >>= fun () ->
+    after t prev
+  ) else return current
