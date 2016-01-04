@@ -3,7 +3,7 @@ maintainer:   "talex@gmail.com"
 authors:      ["Thomas Leonard"]
 license:      "BSD-2-Clause"
 homepage:     "https://github.com/talex5/mirage-qubes"
-homepage:     "https://github.com/talex5/mirage-qubes/issues"
+bug-reports:  "https://github.com/talex5/mirage-qubes/issues"
 dev-repo:     "https://github.com/talex5/mirage-qubes.git"
 
 build: [
@@ -15,6 +15,7 @@ remove: ["ocamlfind" "remove" "mirage-qubes"]
 
 depends: [
   "ocamlfind" {build}
+  "ocamlbuild" {build}
   "cstruct"
   "vchan"
   "xen-evtchn"
