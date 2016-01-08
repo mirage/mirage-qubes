@@ -134,7 +134,7 @@ let recv_hello t =
 let try_close flow return_code =
   Flow.close flow return_code >|= function
   | `Ok () -> ()
-  | `Eof -> Log.warn "End-of-file while closing flow (with exit status %d)" (fun f -> f return_code)
+  | `Eof -> Log.warn (fun f -> f "End-of-file while closing flow (with exit status %d)" return_code)
 
 let with_flow ~ty ~domid ~port fn =
   Lwt.try_bind
@@ -151,13 +151,13 @@ let with_flow ~ty ~domid ~port fn =
         (fun () -> fn flow)
         (fun return_code -> try_close flow return_code)
         (fun ex ->
-          Log.warn "uncaught exception: %s" (fun f -> f (Printexc.to_string ex));
+          Log.warn (fun f -> f "uncaught exception: %s" (Printexc.to_string ex));
           try_close flow 255
         )
     )
     (fun ex ->
-      Log.warn "Error setting up vchan (domain %d, port %s): %s"
-        (fun f -> f domid (Vchan.Port.to_string port) (Printexc.to_string ex));
+      Log.warn (fun f -> f "Error setting up vchan (domain %d, port %s): %s"
+        domid (Vchan.Port.to_string port) (Printexc.to_string ex));
       return ()
     )
 
@@ -182,13 +182,13 @@ let exec t ~ty ~handler msg =
     let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
     let cmdline = Cstruct.shift msg sizeof_exec_params in
-    Log.info "Execute %S" (fun f -> f (Cstruct.to_string cmdline));
+    Log.info (fun f -> f "Execute %S" (Cstruct.to_string cmdline));
     Lwt.finalize
       (fun () ->
         with_flow ~ty ~domid ~port (fun flow ->
           parse_cmdline cmdline >>= fun (user, cmd) ->
           handler ~user cmd flow >>= fun return_code ->
-          Log.debug "%S returned exit status %d" (fun f -> f cmd return_code);
+          Log.debug (fun f -> f "%S returned exit status %d" cmd return_code);
           return return_code
         )
       )
@@ -205,18 +205,18 @@ let listen t handler =
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
     | `Ok (ty, _) ->
-        Log.info "unknown qrexec message type received: %ld"
-          (fun f -> f (int_of_type ty));
+        Log.info (fun f -> f "unknown qrexec message type received: %ld"
+          (int_of_type ty));
         loop ()
     | `Eof ->
-        Log.info "connection closed; ending listen loop" Logs.unit;
+        Log.info (fun f -> f "connection closed; ending listen loop");
         return `Done in
   loop () >|= fun `Done -> ()
 
 let connect ~domid () =
-  Log.info "waiting for client..." Logs.unit;
+  Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
   send_hello t >>= fun () ->
   recv_hello t >>= fun version ->
-  Log.info "client connected, using protocol version %ld" (fun f -> f version);
+  Log.info (fun f -> f "client connected, using protocol version %ld" version);
   return t

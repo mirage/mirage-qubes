@@ -55,7 +55,7 @@ let full_db_sync t =
     recv t.vchan >>= function
     | QDB_RESP_MULTIREAD, "", _ -> return `Done
     | QDB_RESP_MULTIREAD, path, data ->
-        Log.debug "%S = %S" (fun f -> f path data);
+        Log.debug (fun f -> f "%S = %S" path data);
         t.store <- t.store |> KeyMap.add path data;
         loop ()
     | ty, _, _ -> fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
@@ -70,14 +70,14 @@ let rm t path =
     t.store
     |> KeyMap.filter (fun key _ ->
       if starts_with key path then (
-        Log.debug "(rm %S)" (fun f -> f key);
+        Log.debug (fun f -> f "(rm %S)" key);
         false
       ) else true
     )
     |> update t
   ) else (
     if not (KeyMap.mem path t.store) then
-      Log.err "%S not found (fatal database de-synchronization)" (fun f -> f path);
+      Log.err (fun f -> f "%S not found (fatal database de-synchronization)" path);
     t.store |> KeyMap.remove path |> update t
   )
 
@@ -89,27 +89,27 @@ let listen t =
       | `Ok () -> () in
     recv t.vchan >>= function
     | QDB_CMD_WRITE, path, value ->
-        Log.info "got update: %S = %S" (fun f -> f path value);
+        Log.info (fun f -> f "got update: %S = %S" path value);
         t.store |> KeyMap.add path value |> update t;
         ack path >>= loop
     | QDB_RESP_OK, path, _ ->
-        Log.debug "OK %S" (fun f -> f path);
+        Log.debug (fun f -> f "OK %S" path);
         loop ()
     | QDB_CMD_RM, path, _ ->
-        Log.info "got rm %S" (fun f -> f path);
+        Log.info (fun f -> f "got rm %S" path);
         rm t path;
         ack path >>= loop
     | QDB_RESP_ERROR, path, _ ->
-        Log.err "Error from peer (for %S)" (fun f -> f path);
+        Log.err (fun f -> f "Error from peer (for %S)" path);
         loop ()
     | ty, _, _ ->
         fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
   loop () >|= fun `Done -> ()
 
 let connect ~domid () =
-  Log.info "connecting to server..." Logs.unit;
+  Log.info (fun f -> f "connecting to server...");
   QV.client ~domid ~port:qubesdb_vchan_port () >>= fun vchan ->
-  Log.info "connected" Logs.unit;
+  Log.info (fun f -> f "connected");
   let t = {vchan; store = KeyMap.empty; notify = Lwt_condition.create ()} in
   full_db_sync t >>= fun () ->
   Lwt.async (fun () -> listen t);

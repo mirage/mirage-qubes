@@ -20,7 +20,7 @@ let gui_agent_port =
 type t = QV.t
 
 let connect ~domid () =
-  Log.info "waiting for client..." Logs.unit;
+  Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:gui_agent_port () >>= fun gui ->
   let version = Cstruct.create sizeof_gui_protocol_version in
   set_gui_protocol_version_version version qubes_gui_protocol_version_linux;
@@ -32,12 +32,12 @@ let connect ~domid () =
   | `Ok conf ->
   let w = get_xconf_w conf in
   let h = get_xconf_h conf in
-  Log.info "client connected (screen size: %ldx%ld)" (fun f -> f w h);
+  Log.info (fun f -> f "client connected (screen size: %ldx%ld)" w h);
   Lwt.return gui
 
 let rec listen t =
   QV.recv_raw t >>= function
   | `Eof -> failwith "End-of-file from GUId in dom0"
   | `Ok buf ->
-      Log.warn "Unexpected data: %S" (fun f -> f (Cstruct.to_string buf));
+      Log.warn (fun f -> f "Unexpected data: %S" (Cstruct.to_string buf));
       listen t
