@@ -140,11 +140,15 @@ let with_flow ~ty ~domid ~port fn =
   Lwt.try_bind
     (fun () ->
       QV.client ~domid ~port () >>= fun client ->
-      recv_hello client >>= function
-      | version when version <> 2l -> fail (error "Unsupported qrexec version %ld" version)
-      | _ ->
-      send_hello client >|= fun () ->
-      Flow.create ~ty client
+      Lwt.catch
+        (fun () ->
+          recv_hello client >>= function
+          | version when version <> 2l -> fail (error "Unsupported qrexec version %ld" version)
+          | _ ->
+          send_hello client >|= fun () ->
+          Flow.create ~ty client
+        )
+        (fun ex -> QV.disconnect client >>= fun () -> fail ex)
     )
     (fun flow ->
       Lwt.try_bind
