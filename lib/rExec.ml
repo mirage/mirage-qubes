@@ -186,7 +186,7 @@ let exec t ~ty ~handler msg =
     let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
     let cmdline = Cstruct.shift msg sizeof_exec_params in
-    Log.info (fun f -> f "Execute %S" (Cstruct.to_string cmdline));
+    Log.debug (fun f -> f "Execute %S" (Cstruct.to_string cmdline));
     Lwt.finalize
       (fun () ->
         with_flow ~ty ~domid ~port (fun flow ->
