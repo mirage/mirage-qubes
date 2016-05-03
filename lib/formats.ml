@@ -8,25 +8,33 @@ module type FRAMING = sig
 end
 
 module Qrexec = struct
-  cstruct msg_header {
-    uint32_t ty;
-    uint32_t len;
-  } as little_endian
+  [%%cstruct
+      type msg_header = {
+        ty : uint32_t;
+        len : uint32_t;
+      } [@@little_endian]
+  ]
 
-  cstruct peer_info {
-    uint32_t version;
-  } as little_endian
+  [%%cstruct
+      type peer_info = {
+        version : uint32_t;
+      } [@@little_endian]
+  ]
 
-  cstruct exec_params {
-    uint32_t connect_domain;
-    uint32_t connect_port;
-    (* rest of message is command line *)
-  } as little_endian
+  [%%cstruct
+      type exec_params = {
+        connect_domain : uint32_t;
+        connect_port : uint32_t;
+        (* rest of message is command line *)
+      } [@@little_endian]
+  ]
 
-  cstruct exit_status {
-    (* XXX: size of message depends on native int size?? *)
-    uint32_t return_code;
-  } as little_endian
+  [%%cstruct
+      type exit_status = {
+        (* XXX: size of message depends on native int size?? *)
+        return_code : uint32_t;
+      } [@@little_endian]
+  ]
 
   type msg_type =
     [ `Exec_cmdline
@@ -73,21 +81,27 @@ module Qrexec = struct
 end
 
 module GUI = struct
-  cstruct gui_protocol_version {
-    uint32_t version;
-  } as little_endian
+  [%%cstruct
+      type gui_protocol_version = {
+        version : uint32_t;
+      } [@@little_endian]
+  ]
 
-  cstruct msg_header {
-    uint32_t ty;
-    uint32_t window;
-  } as little_endian
+  [%%cstruct
+      type msg_header = {
+        ty : uint32_t;
+        window : uint32_t;
+      } [@@little_endian]
+  ]
 
-  cstruct xconf {
-    uint32_t w;
-    uint32_t h;
-    uint32_t depth;
-    uint32_t mem;
-  } as little_endian
+  [%%cstruct
+      type xconf = {
+        w : uint32_t;
+        h : uint32_t;
+        depth : uint32_t;
+        mem : uint32_t;
+      } [@@little_endian]
+  ]
 
   module Framing = struct
     let header_size = sizeof_msg_header
@@ -96,30 +110,34 @@ module GUI = struct
 end
 
 module QubesDB = struct
-  cenum qdb_msg {
-    QDB_CMD_READ;
-    QDB_CMD_WRITE;
-    QDB_CMD_MULTIREAD;
-    QDB_CMD_LIST;
-    QDB_CMD_RM;
-    QDB_CMD_WATCH;
-    QDB_CMD_UNWATCH;
-    QDB_RESP_OK;
-    QDB_RESP_ERROR_NOENT;
-    QDB_RESP_ERROR;
-    QDB_RESP_READ;
-    QDB_RESP_MULTIREAD; 
-    QDB_RESP_LIST; 
-    QDB_RESP_WATCH;
-  } as uint8_t
+  [%%cenum
+      type qdb_msg =
+        | QDB_CMD_READ
+        | QDB_CMD_WRITE
+        | QDB_CMD_MULTIREAD
+        | QDB_CMD_LIST
+        | QDB_CMD_RM
+        | QDB_CMD_WATCH
+        | QDB_CMD_UNWATCH
+        | QDB_RESP_OK
+        | QDB_RESP_ERROR_NOENT
+        | QDB_RESP_ERROR
+        | QDB_RESP_READ
+        | QDB_RESP_MULTIREAD 
+        | QDB_RESP_LIST 
+        | QDB_RESP_WATCH
+        [@@uint8_t]
+  ]
 
-  cstruct msg_header {
-    uint8_t ty;
-    uint8_t path[64];
-    uint8_t padding[3];
-    uint32_t data_len;
-    (* rest of message is data *)
-  } as little_endian
+  [%%cstruct
+      type msg_header = {
+        ty        : uint8_t;
+        path      : uint8_t [@len 64];
+        padding   : uint8_t [@len 3];
+        data_len  : uint32_t;
+        (* rest of message is data *)
+      } [@@little_endian]
+  ]
 
   let make_msg_header ~ty ~path ~data_len =
     let msg = Cstruct.create sizeof_msg_header in
