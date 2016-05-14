@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 59c40f97f52f69116fce78b910d4f734)
-version = "0.2"
+# DO NOT EDIT (digest: ae11949b3185c10281b978982653f17c)
+version = "0.3"
 description = "Support for QubesOS protocols (qrexec, GUId, QubesDB)"
 requires = "vchan.xen cstruct mirage-types.lwt logs"
 archive(byte) = "qubes.cma"

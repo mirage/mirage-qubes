@@ -1,6 +1,6 @@
 OASISFormat: 0.4
 Name:        mirage-qubes
-Version:     0.2
+Version:     0.3
 Synopsis:    Support for QubesOS protocols (qrexec, GUId, QubesDB)
 Authors:     Thomas Leonard
 License:     BSD-2-clause
