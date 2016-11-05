@@ -1,32 +1,5 @@
-# OASIS_START
-# DO NOT EDIT (digest: d91e1654d10db62b85e28b0729166d97)
-# Ignore VCS directories, you can use the same kind of rule outside
-# OASIS_START/STOP if you want to exclude directories that contains
-# useless stuff for the build process
-true: annot, bin_annot
-<**/.svn>: -traverse
-<**/.svn>: not_hygienic
-".bzr": -traverse
-".bzr": not_hygienic
-".hg": -traverse
-".hg": not_hygienic
-".git": -traverse
-".git": not_hygienic
-"_darcs": -traverse
-"_darcs": not_hygienic
-# Library qubes
-"lib/qubes.cmxs": use_qubes
-"lib/rExec.cmx": for-pack(Qubes)
-"lib/gUI.cmx": for-pack(Qubes)
-"lib/dB.cmx": for-pack(Qubes)
-"lib/msg_chan.cmx": for-pack(Qubes)
-"lib/s.cmx": for-pack(Qubes)
-"lib/utils.cmx": for-pack(Qubes)
-"lib/formats.cmx": for-pack(Qubes)
-<lib/*.ml{,i,y}>: pkg_cstruct
-<lib/*.ml{,i,y}>: pkg_logs
-<lib/*.ml{,i,y}>: pkg_mirage-types.lwt
-<lib/*.ml{,i,y}>: pkg_vchan.xen
-# OASIS_STOP
+true: annot, bin_annot, safe_string
 true: warn(A-4), strict_sequence
-<lib/formats.*>: pkg_cstruct.ppx
+<lib/*>: package(cstruct, logs, lwt, mirage-types.lwt, vchan.xen)
+<lib/*.cm{x,o}> and not <lib/qubes.cmx>: for-pack(Qubes)
+<lib/formats.*>: package(cstruct.ppx)

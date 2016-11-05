@@ -115,7 +115,7 @@ let connect ~domid () =
   Lwt.async (fun () -> listen t);
   Lwt.return t
 
-let disconnect t = QV.disconnect t.vchan
+let disconnect t : unit Lwt.t = QV.disconnect t.vchan
 
 let read t key =
   try Some (KeyMap.find key t.store)

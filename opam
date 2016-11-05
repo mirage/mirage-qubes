@@ -6,21 +6,14 @@ homepage:     "https://github.com/talex5/mirage-qubes"
 bug-reports:  "https://github.com/talex5/mirage-qubes/issues"
 dev-repo:     "https://github.com/talex5/mirage-qubes.git"
 
-build: [
-  ["./configure"]
-  [make]
-]
-install: [make "install"]
-remove: ["ocamlfind" "remove" "mirage-qubes"]
+build: ["ocaml" "pkg/pkg.ml" "build" "--pinned" "%{pinned}%" "--tests" "false"]
 
 depends: [
   "ocamlfind" {build}
   "ocamlbuild" {build}
+  "topkg" {build}
   "cstruct" { >= "1.9.0" }
   "vchan" { >= "2.0.0" }
-  "xen-evtchn"
-  "xen-gnt"
-  "mirage-xen"
   "lwt"
   "mirage-types"
   "logs" { >= "0.5.0" }

@@ -43,7 +43,7 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok body)
     )
 
-  let recv_raw t =
+  let recv_raw t : Cstruct.t S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.read_lock @@ fun () ->
     if Cstruct.len t.buffer > 0 then (
       let data = t.buffer in
@@ -54,7 +54,7 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok result)
     )
 
-  let send t buffers =
+  let send t (buffers : Cstruct.t list) : unit S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.write_lock (fun () ->
       Vchan_xen.writev t.vchan buffers >>= function
       | `Error (`Unknown msg) -> fail (Failure msg)
@@ -79,6 +79,6 @@ module Make (F : Formats.FRAMING) = struct
       write_lock = Lwt_mutex.create ();
     }
 
-  let disconnect t =
+  let disconnect t : unit Lwt.t =
     Vchan_xen.close t.vchan
 end
