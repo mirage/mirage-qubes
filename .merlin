@@ -1,3 +1,4 @@
 S lib/*
-B _build
-PKG vchan.xen lwt mirage
+S lib/ipv4/*
+B _build/*
+PKG vchan.xen lwt mirage-types mirage-types-lwt tcpip ipaddr topkg
