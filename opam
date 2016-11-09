@@ -14,6 +14,9 @@ depends: [
   "topkg" {build}
   "cstruct" { >= "1.9.0" }
   "vchan" { >= "2.0.0" }
+  "xen-evtchn"
+  "xen-gnt"
+  "mirage-xen"
   "lwt"
   "mirage-types"
   "logs" { >= "0.5.0" }
