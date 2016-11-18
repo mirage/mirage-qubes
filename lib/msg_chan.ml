@@ -3,10 +3,15 @@
 
 open Lwt
 
+let unwrap_read = function
+  | Error (`Msg msg) -> `Error msg
+  | Ok `Eof -> `Eof
+  | Ok (`Data x) -> `Ok x
+
 let (>>!=) x f =
   x >>= function
   | `Ok y -> f y
-  | `Error (`Unknown msg) -> fail (Failure msg)
+  | `Error msg -> fail (Failure msg)
   | `Eof -> return `Eof
 
 module Make (F : Formats.FRAMING) = struct
@@ -25,7 +30,7 @@ module Make (F : Formats.FRAMING) = struct
       t.buffer <- Cstruct.shift t.buffer size;
       return (`Ok retval)
     ) else (
-      Vchan_xen.read t.vchan >>!= fun buf ->
+      Vchan_xen.read t.vchan >|= unwrap_read >>!= fun buf ->
       t.buffer <- Cstruct.append t.buffer buf;
       read_exactly t size
     )
@@ -50,15 +55,16 @@ module Make (F : Formats.FRAMING) = struct
       t.buffer <- Cstruct.create 0;
       return (`Ok data)
     ) else (
-      Vchan_xen.read t.vchan >>!= fun result ->
+      Vchan_xen.read t.vchan >|= unwrap_read >>!= fun result ->
       return (`Ok result)
     )
 
   let send t (buffers : Cstruct.t list) : unit S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.write_lock (fun () ->
       Vchan_xen.writev t.vchan buffers >>= function
-      | `Error (`Unknown msg) -> fail (Failure msg)
-      | `Ok () | `Eof as r -> return r
+      | Error (`Msg msg) -> fail (Failure msg)
+      | Error `Closed -> return `Eof
+      | Ok _ -> return @@ `Ok ()
     )
 
   let server ~domid ~port () =
