@@ -1,7 +1,7 @@
 true: annot, bin_annot, safe_string
 true: warn(A-4), strict_sequence
 <lib> : include
-<lib/*>: package(cstruct, logs, lwt, mirage-types.lwt, vchan.xen)
+<lib/*>: package(cstruct, logs, lwt, mirage-types-lwt, vchan.xen)
 <lib/*.cm{x,o}> and not <lib/qubes.cmx>: for-pack(Qubes)
-<lib/ipv4/*>: package(mirage-types.lwt, ipaddr, lwt, tcpip.ipv4)
+<lib/ipv4/*>: package(mirage-types-lwt, ipaddr, lwt, tcpip.ipv4)
 <lib/formats.*>: package(cstruct.ppx)
