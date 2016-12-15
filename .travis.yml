@@ -6,5 +6,7 @@ env:
   global:
   - PACKAGE=mirage-qubes EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
   matrix:
-  - OCAML_VERSION=4.02
   - OCAML_VERSION=4.03
+  - OCAML_VERSION=4.03 DEPOPTS="ipaddr tcpip"
+  - OCAML_VERSION=4.04
+  - OCAML_VERSION=4.04 DEPOPTS="ipaddr tcpip"
