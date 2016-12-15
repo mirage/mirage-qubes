@@ -20,11 +20,11 @@ depends: [
   "xen-gnt"
   "mirage-xen"
   "lwt"
-  "mirage-types"
+  "mirage-types-lwt" { >= "3.0.0" }
   "logs" { >= "0.5.0" }
 ]
 depopts: [
   "ipaddr"
   "tcpip"
 ]
-available: [ocaml-version >= "4.02.3"]
+available: [ocaml-version >= "4.03.0"]
