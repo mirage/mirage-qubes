@@ -1,4 +1,6 @@
-module Make(D: Qubes.S.DB) (Ethernet : V1_LWT.ETHIF) (Arp : V1_LWT.ARP) = struct
+module Make(D: Qubes.S.DB)
+  (Ethernet : Mirage_protocols_lwt.ETHIF)
+  (Arp : Mirage_protocols_lwt.ARP) = struct
   module IP = Static_ipv4.Make(Ethernet)(Arp)
   include IP
   let connect db ethif arp =
