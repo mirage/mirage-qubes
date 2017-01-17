@@ -10,7 +10,7 @@ exists_if = "qubes.cma"
 package "ipv4" (
   version = "%%VERSION_NUM%%"
   description = "configure ipv4 automatically with qubesdb"
-  requires = "mirage-qubes mirage-types-lwt ipaddr lwt tcpip.ipv4"
+  requires = "mirage-qubes mirage-protocols-lwt ipaddr lwt tcpip.ipv4"
   archive(byte) = "qubesdb_ipv4.cma"
   archive(native) = "qubesdb_ipv4.cmxa"
   plugin(byte) = "qubesdb_ipv4.cma"

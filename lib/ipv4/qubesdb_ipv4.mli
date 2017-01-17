@@ -1,6 +1,8 @@
-module Make(D : Qubes.S.DB) (Ethernet : V1_LWT.ETHIF) (Arp : V1_LWT.ARP) : sig
+module Make(D : Qubes.S.DB)
+           (Ethernet : Mirage_protocols_lwt.ETHIF)
+           (Arp : Mirage_protocols_lwt.ARP) : sig
 
-  include V1_LWT.IPV4 with type ethif = Ethernet.t
+  include Mirage_protocols_lwt.IPV4 with type ethif = Ethernet.t
   val connect : D.t -> Ethernet.t -> Arp.t -> t io
   (** [connect db ethernet arp] attempts to use the provided [db] 
    *  to look up the correct IPV4 information, and construct
