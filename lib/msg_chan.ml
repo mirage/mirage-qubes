@@ -4,7 +4,7 @@
 open Lwt
 
 let unwrap_read = function
-  | Error (`Msg msg) -> `Error msg
+  | Error e -> `Error (Format.asprintf "%a" Vchan_xen.pp_error e)
   | Ok `Eof -> `Eof
   | Ok (`Data x) -> `Ok x
 
@@ -62,8 +62,8 @@ module Make (F : Formats.FRAMING) = struct
   let send t (buffers : Cstruct.t list) : unit S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.write_lock (fun () ->
       Vchan_xen.writev t.vchan buffers >>= function
-      | Error (`Msg msg) -> fail (Failure msg)
       | Error `Closed -> return `Eof
+      | Error e -> fail (Failure (Format.asprintf "%a" Vchan_xen.pp_write_error e))
       | Ok _ -> return @@ `Ok ()
     )
 
