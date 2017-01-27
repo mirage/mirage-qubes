@@ -15,10 +15,10 @@ depends: [
   "ocamlbuild" {build}
   "topkg" {build}
   "cstruct" { >= "1.9.0" }
-  "vchan" { >= "2.0.0" }
+  "vchan" { >= "2.3.0" }
   "xen-evtchn"
   "xen-gnt"
-  "mirage-xen"
+  "mirage-xen" { >= "3.0.0" }
   "lwt"
   "mirage-types-lwt" { >= "3.0.0" }
   "logs" { >= "0.5.0" }
