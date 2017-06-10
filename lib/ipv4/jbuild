@@ -1,6 +1,6 @@
 (library
  ((name qubesdb_ipv4)
   (public_name mirage-qubes-ipv4)
-  (libraries (cstruct vchan-xen xen-evtchn xen-gnt mirage-xen lwt mirage-types-lwt logs tcpip ipaddr mirage-protocols-lwt qubes))
+  (libraries (cstruct vchan-xen xen-evtchn xen-gnt mirage-xen lwt mirage-types-lwt logs tcpip tcpip.ipv4 ipaddr mirage-protocols-lwt mirage-qubes))
 ))
 
