@@ -1,4 +1,4 @@
-### 0.4 (unreleased)
+### 0.4 (2017-01-20)
 
 - Include an ipv4 sublibrary for automatically configuring ipv4 settings from qubesdb.
 
