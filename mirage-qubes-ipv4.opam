@@ -15,6 +15,7 @@ build: [
 depends: [
   "ocamlfind" {build}
   "jbuilder"  {build & >="1.0+beta9"}
+  "mirage-qubes"
   "tcpip"
   "ipaddr"
   "mirage-protocols-lwt"
