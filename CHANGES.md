@@ -1,3 +1,8 @@
+### 0.5 (unreleased)
+
+- Split into 2 opam packages: mirage-qubes and mirage-qubes-ipv4
+- Build with jbuilder and release with topkg
+
 ### 0.4 (2017-01-20)
 
 - Include an ipv4 sublibrary for automatically configuring ipv4 settings from qubesdb.
