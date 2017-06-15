@@ -1,4 +1,4 @@
-### 0.5 (unreleased)
+### 0.5 (2017-06-15)
 
 - Split into 2 opam packages: mirage-qubes and mirage-qubes-ipv4
 - Build with jbuilder and release with topkg
