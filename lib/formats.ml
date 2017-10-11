@@ -253,7 +253,23 @@ module GUI = struct
         height : uint32_t;
         override_redirect : uint32_t;
       } [@@little_endian]
-  ]
+    ]
+
+  type msg_configure_t = {
+    x: int32;
+    y: int32;
+    width: int32;
+    height: int32;
+    override_redirect: int32;
+  }
+
+  let decode_msg_configure cs : msg_configure_t option =
+    Some ({ x = get_msg_configure_x cs ;
+            y = get_msg_configure_y cs ;
+            width = get_msg_configure_width cs ;
+            height = get_msg_configure_height cs ;
+            override_redirect = get_msg_configure_override_redirect cs ;
+          } : msg_configure_t)
 
   (** VM -> Dom0 *)
   [%%cstruct

@@ -35,6 +35,7 @@ val listen : t -> unit -> t Lwt.t
 val set_title : window -> string -> unit S.or_eof Lwt.t
 val int32_of_window : window -> int32
 
+<<<<<<< HEAD
 val create_window : ?parent:window_id -> x:Cstruct.uint32 -> y:Cstruct.uint32 ->
   title:string ->
   width:Cstruct.uint32 ->
@@ -43,6 +44,11 @@ val create_window : ?parent:window_id -> x:Cstruct.uint32 -> y:Cstruct.uint32 ->
     The window will have dimensions [width] * [height], and be instantiated at
     coordinates [x]*[y] (relative to the screen's [0,0]).
 *)
+=======
+val create_window : ?parent:window_id -> width:Cstruct.uint32 ->
+                    height:Cstruct.uint32 -> t-> window S.or_eof Lwt.t
+(* [create_window ?parent ~width ~height t] instantiates a new window. *)
+>>>>>>> adab1b7... Qubes.GUI: Implement event dispatch from GUI thread using Lwt_mvar
 
 val send : t -> Cstruct.t list -> unit S.or_eof Lwt.t
 (** [send t messages] synchronously sends [messages] to the Qubes GUId
