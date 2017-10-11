@@ -508,8 +508,8 @@ module QubesDB = struct
         | QDB_RESP_ERROR_NOENT
         | QDB_RESP_ERROR
         | QDB_RESP_READ
-        | QDB_RESP_MULTIREAD 
-        | QDB_RESP_LIST 
+        | QDB_RESP_MULTIREAD
+        | QDB_RESP_LIST
         | QDB_RESP_WATCH
         [@@uint8_t]
   ]
