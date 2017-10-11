@@ -157,6 +157,14 @@ module GUI = struct
       } [@@little_endian]
   ]
 
+  type msg_button_t = {
+   ty : int32 ;
+    x : int32 ;
+    y : int32 ;
+    state : int32 ;
+    button: int32 ;
+  }
+
   (** Dom0 -> VM, TODO seems to be mouse buttons? *)
   [%%cstruct
    type msg_button = {
@@ -167,6 +175,14 @@ module GUI = struct
      button : uint32_t; (* TODO *)
    } [@@little_endian]
   ]
+
+  let decode_msg_button cs : msg_button_t option =
+    Some ({ ty = get_msg_button_ty cs ;
+            x = get_msg_button_x cs ;
+            y = get_msg_button_y cs ;
+            state = get_msg_button_state cs ;
+            button = get_msg_button_button cs ;
+      })
 
   (* dom0 -> VM, mouse / cursor movement *)
   type msg_motion_t = {
@@ -412,7 +428,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
    *)
   (* type mfn : uint32_t;  big-endian 24-bit RGB pixel *)
 
-  let make_with_header ?(window=const_QUBES_MAIN_WINDOW) ~ty body =
+  let make_with_header ~window ~ty body =
     (** see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
     (** TODO consider using Cstruct.add_len *)
     let body_len = Cstruct.len body in
