@@ -139,9 +139,10 @@ module GUI = struct
 
   type msg_keypress_t =
     {
+        ty    : int32; (* TODO make bool? XKeyEvent->type, see KeyPressMask/KeyReleaseMask *)
         x     : int32;
         y     : int32;
-        state : int32;
+        state : int32; (* key mask *)
         keycode : int32;
     }
 
@@ -149,7 +150,7 @@ module GUI = struct
   (* https://github.com/drinkcat/chroagh/commit/1d38c2e2422f97b6bf55580c9efc027ecf9f2721 *)
   [%%cstruct
       type msg_keypress = {
-        ty    : uint32_t; (* TODO *)
+        ty    : uint32_t;
         x     : uint32_t;
         y     : uint32_t;
         state : uint32_t; (** 1:down, 0:up *)
@@ -158,10 +159,10 @@ module GUI = struct
   ]
 
   type msg_button_t = {
-   ty : int32 ;
+   ty : int32 ; (* TODO make bool? ButtonPress / ButtonRelease*)
     x : int32 ;
     y : int32 ;
-    state : int32 ;
+    state : int32 ; (* button mask *)
     button: int32 ;
   }
 
@@ -552,4 +553,43 @@ module QubesDB = struct
     let header_size = sizeof_msg_header
     let body_size_from_header h = get_msg_header_data_len h |> Int32.to_int
   end
+end
+
+module Rpc_filecopy = struct
+  (* see qubes-linux-utils/qrexec-lib/libqubes-rpc-filecopy.h *)
+  [%%cstruct
+      type file_header = {
+        namelen    : uint32; (* TODO these uint32 are really "unsigned int" *)
+        mode       : uint32;
+        filelen    : uint64; (* unsigned long long *)
+        atime      : uint32;
+        atime_nsec : uint32;
+        mtime      : uint32;
+        mtime_nsec : uint32;
+      } [@@little_endian]
+  ]
+
+  [%%cstruct
+      type result_header = {
+        error_code : uint32;
+        _pad       : uint32;
+        crc32      : uint64;
+      } [@@little_endian]
+  ]
+
+  [%%cstruct
+      type result_header_ext = {
+        last_namelen : uint32;
+        (* TODO char last_name[0]; variable length[last_namelen] *)
+      } [@@little_endian]
+  ]
+
+  let make_result_header_ext last_filename =
+    let namelen = Cstruct.len last_filename in
+    let msg = Cstruct.create (sizeof_result_header_ext + namelen) in
+    set_result_header_ext_last_namelen msg namelen;
+    Cstruct.blit (* src  srcoff *) last_filename 0
+                 (* dst  dstoff *) msg sizeof_result_header_ext
+                 (* len *) namelen ;
+    msg
 end
