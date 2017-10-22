@@ -59,6 +59,7 @@ let decode_KEYPRESS buf =
       y = get_msg_keypress_y buf;
       state = get_msg_keypress_state buf;
       keycode = get_msg_keypress_keycode buf;
+      ty = get_msg_keypress_ty buf;
     } in
     Keypress keypress
 
