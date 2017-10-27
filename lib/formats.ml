@@ -432,8 +432,8 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     let offset  = 0x0l in
     let body = Cstruct.create (sizeof_shm_cmd + num_mfn*4) in
     set_shm_cmd_shmid   body 0l; (* TODO what *)
-    set_shm_cmd_width   body height;
-    set_shm_cmd_height  body width;
+    set_shm_cmd_width   body width;
+    set_shm_cmd_height  body height;
     set_shm_cmd_bpp     body 24l; (* bits per pixel *)
     set_shm_cmd_off     body offset;
     set_shm_cmd_num_mfn body Int32.(of_int num_mfn);
