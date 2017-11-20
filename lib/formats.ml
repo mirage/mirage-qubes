@@ -556,17 +556,19 @@ module QubesDB = struct
 end
 
 module Rpc_filecopy = struct
-  (* see qubes-linux-utils/qrexec-lib/libqubes-rpc-filecopy.h *)
+  (* see qubes-linux-utils/qrexec-lib/libqubes-rpc-filecopy.h
+   * and qubes-core-agent-windows/src/qrexec-services/common/filecopy.h*)
   [%%cstruct
       type file_header = {
-        namelen    : uint32; (* TODO these uint32 are really "unsigned int" *)
+        namelen    : uint32;
         mode       : uint32;
-        filelen    : uint64; (* unsigned long long *)
+        filelen    : uint64;
         atime      : uint32;
         atime_nsec : uint32;
         mtime      : uint32;
         mtime_nsec : uint32;
       } [@@little_endian]
+      (* followed by filename[namelen] and data[filelen] *)
   ]
 
   [%%cstruct
@@ -587,7 +589,7 @@ module Rpc_filecopy = struct
   let make_result_header_ext last_filename =
     let namelen = Cstruct.len last_filename in
     let msg = Cstruct.create (sizeof_result_header_ext + namelen) in
-    set_result_header_ext_last_namelen msg namelen;
+    set_result_header_ext_last_namelen msg (Int32.of_int namelen);
     Cstruct.blit (* src  srcoff *) last_filename 0
                  (* dst  dstoff *) msg sizeof_result_header_ext
                  (* len *) namelen ;
