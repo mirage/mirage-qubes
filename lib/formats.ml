@@ -583,9 +583,9 @@ module Rpc_filecopy = struct
    * and qubes-core-agent-windows/src/qrexec-services/common/filecopy.h*)
   [%%cstruct
       type file_header = {
-        namelen    : uint32; (* TODO these uint32 are really "unsigned int" *)
+        namelen    : uint32;
         mode       : uint32;
-        filelen    : uint64; (* unsigned long long *)
+        filelen    : uint64;
         atime      : uint32;
         atime_nsec : uint32;
         mtime      : uint32;
