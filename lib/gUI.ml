@@ -205,6 +205,7 @@ let rec listen t () =
     Log.err (fun f -> f "Event: WMNAME: %S" Cstruct.(to_string msg_buf)) ;
     UNIT ()
   | Some MSG_KEYMAP_NOTIFY ->
+    (* Synchronize the keyboard state (key pressed/released) with dom0 *)
     Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S" Cstruct.(to_string msg_buf))
     ;UNIT()
   | Some MSG_WINDOW_HINTS ->
