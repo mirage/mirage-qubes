@@ -227,28 +227,15 @@ let rec listen t () =
         f "Event: dom0 requested our clipboard. debug: sizeof: %d"
           sizeof_msg_clipboard_req) ; Clipboard_request
   | Some MSG_CROSSING -> decode_MSG_CROSSING msg_buf
-  | Some MSG_DESTROY -> decode_MSG_DESTROY msg_buf
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> decode_MSG_BUTTON msg_buf
-  | Some MSG_CREATE ->
-    Log.warn (fun f -> f "Event: CREATE: %S" Cstruct.(to_string msg_buf));
-    UNIT ()
-  | Some MSG_EXECUTE ->
-    Log.warn (fun f -> f "Event: EXECUTE: %S" Cstruct.(to_string msg_buf));
-    UNIT ()
-  | Some MSG_WMNAME -> (* TODO VM -> dom0 only*)
-    Log.err (fun f -> f "Event: WMNAME: %S" Cstruct.(to_string msg_buf)) ;
-    UNIT ()
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
     Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S" Cstruct.(to_string msg_buf))
     ;UNIT()
-  | Some MSG_WINDOW_HINTS ->
-    Log.warn (fun f -> f "Event: WINDOW_HINTS: %S" Cstruct.(to_string msg_buf))
-    ;UNIT()
   | Some MSG_WINDOW_FLAGS ->
     Log.warn (fun f -> f "Event: WINDOW_FLAGS: %S" Cstruct.(to_string msg_buf))
-    ; UNIT()
+      ; UNIT ()
   | Some MSG_CONFIGURE ->
     Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a"
                  Cstruct.hexdump_pp msg_buf) ;
@@ -272,7 +259,7 @@ let rec listen t () =
     (* Handle messages that are appvm->dom0 and thus dom0 is not supposed
        to send to the VM: *)
     Log.warn (fun f ->
-        f "UNHANDLED DATA of non-fixed length received. Data: %a"
+        f "UNEXPECTED message received. Data: %a"
           Cstruct.hexdump_pp msg_buf); UNIT()
   | None ->
     Log.warn (fun f -> f "Unexpected data with unknown type: [%a] %aa"
