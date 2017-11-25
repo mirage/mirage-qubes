@@ -434,7 +434,6 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     (** TODO consider using Cstruct.add_len *)
     let body_len = Cstruct.len body in
     let msg = Cstruct.create (sizeof_msg_header + body_len) in
-    let()= Cstruct.memset msg 0 in
     let()= set_msg_header_ty     msg (msg_type_to_int ty) in
     let()= set_msg_header_window msg window in
     let()= set_msg_header_untrusted_len msg Int32.(of_int body_len) in
@@ -444,25 +443,38 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
         (* length: *)      Cstruct.(len body)
     in msg
 
-  let make_msg_mfndump ~domid ~width ~height ~mfns =
+  let make_msg_mfndump ~window ~width ~height ~mfns =
+    (* n.b. must be followed by a MSG_SHMIMAGE to actually repaint *)
     let num_mfn = List.length mfns in
     let offset  = 0x0l in
     let body = Cstruct.create (sizeof_shm_cmd + num_mfn*4) in
-    set_shm_cmd_shmid   body 0l; (* TODO what *)
     set_shm_cmd_width   body width;
     set_shm_cmd_height  body height;
     set_shm_cmd_bpp     body 24l; (* bits per pixel *)
     set_shm_cmd_off     body offset;
     set_shm_cmd_num_mfn body Int32.(of_int num_mfn);
-    set_shm_cmd_domid   body Int32.(of_int domid);
+    (* From https://www.qubes-os.org/doc/gui/
+       >> "shmid" and "domid" parameters are just placeholders (to be filled
+       >> by *qubes_guid* ), so that we can use the same structure when talking
+       >> to shmoverride.so **)
+    (* set_shm_cmd_domid   body Int32.(of_int domid);
+       set_shm_cmd_shmid   body 0l; *)
+
     (* TODO let n = (4 * width * height + offset
                      + (XC_PAGE_SIZE-1)) / XC_PAGE_SIZE; *)
     mfns |> List.iteri (fun i ->
         Cstruct.LE.set_uint32 body (sizeof_shm_cmd + i*4));
-    let msg = make_with_header ~ty:MSG_MFNDUMP body in
-    msg
+    make_with_header ~window ~ty:MSG_MFNDUMP body
 
-  let make_msg_create ~width ~height ~x ~y ~override_redirect ~parent =
+  let make_msg_shmimage ~window ~x ~y ~width ~height =
+    let body = Cstruct.create (sizeof_msg_shmimage) in
+    set_msg_shmimage_x body x;
+    set_msg_shmimage_y body y;
+    set_msg_shmimage_width body width;
+    set_msg_shmimage_height body height;
+    make_with_header ~window ~ty:MSG_SHMIMAGE body
+
+  let make_msg_create ~window ~width ~height ~x ~y ~override_redirect ~parent =
     let body = Cstruct.create sizeof_msg_create in
     set_msg_create_width             body width; (*  w *)
     set_msg_create_height            body height; (* h *)
@@ -470,21 +482,21 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     set_msg_create_y                 body y;
     set_msg_create_override_redirect body override_redirect;
     set_msg_create_parent            body parent;
-    make_with_header ~ty:MSG_CREATE body
+    make_with_header ~window ~ty:MSG_CREATE body
 
-  let make_msg_map_info ~override_redirect ~transient_for =
+  let make_msg_map_info ~window ~override_redirect ~transient_for =
     let body = Cstruct.create sizeof_msg_map_info in
     let()= set_msg_map_info_override_redirect body override_redirect in
     let()= set_msg_map_info_transient_for body transient_for in
-    make_with_header ~ty:MSG_MAP body
+    make_with_header ~window ~ty:MSG_MAP body
 
-  let make_msg_wmname ~wmname =
+  let make_msg_wmname ~window ~wmname =
     let body = Cstruct.create sizeof_msg_wmname in
     let()= Cstruct.blit_from_string wmname 0 body 0
       (min String.(length wmname) sizeof_msg_wmname) ; (* length *) in
-    make_with_header ~ty:MSG_WMNAME body
+    make_with_header ~window ~ty:MSG_WMNAME body
 
-  let make_msg_window_hints ~width ~height =
+  let make_msg_window_hints ~window ~width ~height =
     let body = Cstruct.create sizeof_msg_window_hints in
     set_msg_window_hints_flags body Int32.(16 lor 32 |> of_int) ;
        (*^--  PMinSize | PMaxSize *)
@@ -492,9 +504,9 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     set_msg_window_hints_min_height body height;
     set_msg_window_hints_max_width body width;
     set_msg_window_hints_max_height body height;
-    make_with_header ~ty:MSG_WINDOW_HINTS body
+    make_with_header ~window ~ty:MSG_WINDOW_HINTS body
 
-  let make_msg_configure ~x ~y ~width ~height =
+  let make_msg_configure ~window ~x ~y ~width ~height =
     let body  = Cstruct.create sizeof_msg_configure in
     set_msg_configure_x body x ;
     set_msg_configure_y body y ; (* x and y are from qs->window_x and window_y*)
@@ -502,7 +514,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     set_msg_configure_width body width ;
     set_msg_configure_height body height ;
     set_msg_configure_override_redirect body 0l ;
-    make_with_header ~ty:MSG_CONFIGURE body
+    make_with_header ~window ~ty:MSG_CONFIGURE body
 
   module Framing = struct
     let header_size = sizeof_msg_header
