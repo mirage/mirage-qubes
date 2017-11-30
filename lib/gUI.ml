@@ -162,14 +162,15 @@ let rec listen t () =
   | `Eof -> failwith "End-of-file from GUId in dom0"
   | `Ok (msg_header , msg_buf) ->
   let window = get_msg_header_window msg_header in
-  let send_to_window =
+  let send_to_window promise =
+    promise >>= fun resolved ->
     match List.find (fun t -> t.no = window) t.mvar with
-    | w -> Lwt_mvar.put w.mvar
+    | w -> Lwt_mvar.put w.mvar resolved
     | exception _ -> Log.warn (fun m -> m "No such window %ld" window);
-                     fun _ -> Lwt.return ()
+                     Lwt.return ()
   in
   let msg_len    = get_msg_header_untrusted_len msg_header |> Int32.to_int in
-  send_to_window @@
+  send_to_window
   begin match int_to_msg_type (get_msg_header_ty msg_header) with
 
   (* handle fixed-length messages *)
@@ -179,38 +180,44 @@ let rec listen t () =
          | MSG_EXECUTE | MSG_WMNAME | MSG_KEYMAP_NOTIFY | MSG_WINDOW_HINTS
          | MSG_WINDOW_FLAGS | MSG_WMCLASS | MSG_CLIPBOARD_REQ
          | MSG_CLOSE as msg)
-      when (match msg_type_size msg with Some x -> x <> msg_len | None -> true) ->
+    when (begin match msg_type_size msg with Some x -> x <> msg_len
+                                           | None -> false end) ->
       Log.warn (fun f -> f "BUG: expected_size [%d] <> msg_len [%d] for fixed-\
                             size msg! msg_header: %a@ Received raw buffer:: %a"
                          (match msg_type_size msg with Some x -> x | None -> -1)
                          msg_len
                          Cstruct.hexdump_pp msg_header
-                         Cstruct.hexdump_pp msg_buf); UNIT ()
-  | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
-  | Some MSG_FOCUS -> decode_FOCUS msg_buf
-  | Some MSG_MOTION -> decode_MSG_MOTION msg_buf
+                         Cstruct.hexdump_pp msg_buf); Lwt.return (UNIT ())
+  | Some MSG_KEYPRESS -> Lwt.return @@ decode_KEYPRESS msg_buf
+  | Some MSG_FOCUS -> Lwt.return @@ decode_FOCUS msg_buf
+  | Some MSG_MOTION -> Lwt.return @@ decode_MSG_MOTION msg_buf
   | Some MSG_CLIPBOARD_REQ ->
-    Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ; Clipboard_request
-  | Some MSG_CROSSING -> decode_MSG_CROSSING msg_buf
-  | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
-  | Some MSG_BUTTON -> decode_MSG_BUTTON msg_buf
+    Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ;
+    Lwt.return Clipboard_request
+  | Some MSG_CROSSING -> Lwt.return @@ decode_MSG_CROSSING msg_buf
+  | Some MSG_CLOSE -> Lwt.return @@ decode_MSG_CLOSE msg_buf
+  | Some MSG_BUTTON -> Lwt.return @@ decode_MSG_BUTTON msg_buf
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
-    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S" Cstruct.(to_string msg_buf))
-    ;UNIT()
+    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S"
+      Cstruct.(to_string msg_buf)) ;
+    Lwt.return @@ UNIT()
   | Some MSG_WINDOW_FLAGS ->
     Log.warn (fun f -> f "Event: WINDOW_FLAGS: %S" Cstruct.(to_string msg_buf))
-      ; UNIT ()
+      ; Lwt.return @@ UNIT ()
   | Some MSG_CONFIGURE ->
-    Log.warn (fun f -> f "Event: CONFIGURE: %a" Cstruct.hexdump_pp msg_buf)
-    ; UNIT()
+    Log.warn (fun f -> f "Event: CONFIGURE: %a" Cstruct.hexdump_pp msg_buf) ;
+    (* TODO here we are ACK'ing to Qubes that we accept the new dimensions -
+            perhaps the user should have a say in that: *)
+    QV.send t.qv [msg_header; msg_buf] >>= (function `Ok () ->
+        Lwt.return @@ UNIT ())
   | Some MSG_MAP ->
     Log.warn (fun f -> f "Event: MAP: %a" Cstruct.hexdump_pp msg_buf)
-    ; UNIT()
+    ; Lwt.return @@ UNIT()
 
   (* parse variable-length messages: *)
 
-  | Some MSG_CLIPBOARD_DATA -> decode_CLIPBOARD_DATA msg_buf
+  | Some MSG_CLIPBOARD_DATA -> Lwt.return @@ decode_CLIPBOARD_DATA msg_buf
 
   (* handle unimplemented/unexpected messages:*)
 
@@ -221,11 +228,11 @@ let rec listen t () =
        to send to the VM: *)
     Log.warn (fun f ->
         f "UNEXPECTED message received. Data: %a"
-          Cstruct.hexdump_pp msg_buf); UNIT()
+          Cstruct.hexdump_pp msg_buf); Lwt.return @@ UNIT()
   | None ->
     Log.warn (fun f -> f "Unexpected data with unknown type: [%a] %aa"
                  Cstruct.hexdump_pp msg_header
                  Cstruct.hexdump_pp msg_buf) ;
-    UNIT()
+    Lwt.return @@ UNIT()
   end
   >>= fun () -> listen t ()
