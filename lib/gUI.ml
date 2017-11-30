@@ -78,7 +78,9 @@ let decode_MSG_CLOSE buf =
   Log.warn (fun f -> f "Event: CLOSE: %a" Cstruct.hexdump_pp buf) ;
   Window_close
 
-let decode_CLIPBOARD_DATA buf = Clipboard_data buf
+let decode_CLIPBOARD_DATA buf =
+  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" Cstruct.hexdump_pp buf);
+  Clipboard_data buf
 
 let decode_MSG_MOTION buf =
    let Some m = Formats.GUI.decode_msg_motion buf in
@@ -177,20 +179,18 @@ let rec listen t () =
          | MSG_EXECUTE | MSG_WMNAME | MSG_KEYMAP_NOTIFY | MSG_WINDOW_HINTS
          | MSG_WINDOW_FLAGS | MSG_WMCLASS | MSG_CLIPBOARD_REQ
          | MSG_CLOSE as msg)
-      when msg_len <> (match msg_type_size msg with Some x -> x | None -> -1) ->
+      when (match msg_type_size msg with Some x -> x <> msg_len | None -> true) ->
       Log.warn (fun f -> f "BUG: expected_size [%d] <> msg_len [%d] for fixed-\
-                            size msg! msg_header: %S Received raw buffer:: %S"
+                            size msg! msg_header: %a@ Received raw buffer:: %a"
                          (match msg_type_size msg with Some x -> x | None -> -1)
                          msg_len
-                         Cstruct.(to_string msg_header)
-                         Cstruct.(to_string msg_buf)); UNIT ()
+                         Cstruct.hexdump_pp msg_header
+                         Cstruct.hexdump_pp msg_buf); UNIT ()
   | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> decode_FOCUS msg_buf
   | Some MSG_MOTION -> decode_MSG_MOTION msg_buf
   | Some MSG_CLIPBOARD_REQ ->
-    Log.warn (fun f ->
-        f "Event: dom0 requested our clipboard. debug: sizeof: %d"
-          sizeof_msg_clipboard_req) ; Clipboard_request
+    Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ; Clipboard_request
   | Some MSG_CROSSING -> decode_MSG_CROSSING msg_buf
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> decode_MSG_BUTTON msg_buf
