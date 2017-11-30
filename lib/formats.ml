@@ -117,13 +117,8 @@ module GUI = struct
       } [@@little_endian]
   ]
 
-  [%%cstruct
-      type msg_clipboard_data = {
-        len_big : uint32_t [@big_endian];
-        len_little : uint32_t;
-        (* followed by a uint8 array of size len *)
-      } [@@little_endian]
-  ]
+  (** Dom0 -> VM, VM -> Dom0: MSG_CLIPBOARD_DATA:*)
+  (** a normal header, followed by a uint8 array of size len *)
 
   (** VM -> Dom0 *)
   [%%cstruct
