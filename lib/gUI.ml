@@ -192,11 +192,12 @@ let rec listen t () =
   | `Eof -> failwith "End-of-file from GUId in dom0"
   | `Ok (msg_header , msg_buf) ->
   let window = get_msg_header_window msg_header in
-  let send_to_window =
+  let send_to_window promise =
+    promise >>= fun resolved ->
     match List.find (fun t -> t.no = window) t.mvar with
-    | w -> Lwt_mvar.put w.mvar
+    | w -> Lwt_mvar.put w.mvar resolved
     | exception _ -> Log.warn (fun m -> m "No such window %ld" window);
-                     fun _ -> Lwt.return ()
+                     Lwt.return ()
   in
   let msg_len    = get_msg_header_untrusted_len msg_header |> Int32.to_int in
   send_to_window
@@ -224,17 +225,19 @@ let rec listen t () =
   | Some MSG_FOCUS -> decode_FOCUS msg_buf
   | Some MSG_MOTION -> decode_MSG_MOTION msg_buf
   | Some MSG_CLIPBOARD_REQ ->
-    Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ; Clipboard_request
-  | Some MSG_CROSSING -> decode_MSG_CROSSING msg_buf
-  | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
-  | Some MSG_BUTTON -> decode_MSG_BUTTON msg_buf
+    Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ;
+    Lwt.return Clipboard_request
+  | Some MSG_CROSSING -> Lwt.return @@ decode_MSG_CROSSING msg_buf
+  | Some MSG_CLOSE -> Lwt.return @@ decode_MSG_CLOSE msg_buf
+  | Some MSG_BUTTON -> Lwt.return @@ decode_MSG_BUTTON msg_buf
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
-    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S" Cstruct.(to_string msg_buf))
-    ;UNIT()
+    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S"
+      Cstruct.(to_string msg_buf)) ;
+    Lwt.return @@ UNIT()
   | Some MSG_WINDOW_FLAGS ->
     Log.warn (fun f -> f "Event: WINDOW_FLAGS: %S" Cstruct.(to_string msg_buf))
-      ; UNIT ()
+      ; Lwt.return @@ UNIT ()
   | Some MSG_CONFIGURE ->
     Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a"
                  Cstruct.hexdump_pp msg_buf) ;
@@ -248,7 +251,7 @@ let rec listen t () =
 
   (* parse variable-length messages: *)
 
-  | Some MSG_CLIPBOARD_DATA -> decode_CLIPBOARD_DATA msg_buf
+  | Some MSG_CLIPBOARD_DATA -> Lwt.return @@ decode_CLIPBOARD_DATA msg_buf
 
   (* handle unimplemented/unexpected messages:*)
 
@@ -259,11 +262,11 @@ let rec listen t () =
        to send to the VM: *)
     Log.warn (fun f ->
         f "UNEXPECTED message received. Data: %a"
-          Cstruct.hexdump_pp msg_buf); UNIT()
+          Cstruct.hexdump_pp msg_buf); Lwt.return @@ UNIT()
   | None ->
     Log.warn (fun f -> f "Unexpected data with unknown type: [%a] %aa"
                  Cstruct.hexdump_pp msg_header
                  Cstruct.hexdump_pp msg_buf) ;
-    UNIT()
+    Lwt.return @@ UNIT()
   end
   >>= fun () -> listen t ()
