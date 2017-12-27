@@ -178,7 +178,18 @@ let parse_cmdline cmd =
     let cmd = String.sub cmd 0 (String.length cmd - 1) in
     match cmd |> split ':' with
     | None -> fail (error "Missing ':' in %S" cmd)
-    | Some (user, cmd) -> return (user, cmd)
+    | Some (user, cmd) ->
+      (* Strip ["nogui:"] prefix; it's a Windows thing *)
+      let nogui = "nogui:" in
+      match String.sub cmd 0 (String.length nogui) with
+      | "nogui:" ->
+        let cmd = String.sub cmd
+            (String.length nogui) (String.length cmd - String.length nogui) in
+        return (user, cmd)
+      | _ ->
+        return (user, cmd)
+      | exception Invalid_argument _ ->
+        return (user, cmd)
   )
 
 let exec t ~ty ~handler msg =
