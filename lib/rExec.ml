@@ -34,11 +34,17 @@ let vchan_base_port =
   | `Error msg -> failwith msg
   | `Ok port -> port
 
-let send t ~ty data =
+let rec send t ~ty data =
+  let data, data' = Cstruct.split data (min 4096 (Cstruct.len data)) in
   let hdr = Cstruct.create sizeof_msg_header in
   set_msg_header_ty hdr (int_of_type ty);
   set_msg_header_len hdr (Cstruct.len data |> Int32.of_int);
-  QV.send t [hdr; data]
+  if Cstruct.len data' = 0
+  then QV.send t [hdr; data]
+  else QV.send t [hdr; data] >>= function
+    | `Eof -> return `Eof
+    | `Ok () ->
+      send t ~ty data'
 
 let recv t =
   QV.recv t >>!= fun (hdr, data) ->
