@@ -356,28 +356,28 @@ module GUI = struct
     type msg_type =
     (*| MSG_MIN [@id 123l] (* 0x7b_l *) *)
     | MSG_KEYPRESS     [@id 124_l] (* 0x7c_l *)
-    | MSG_BUTTON       [@id 125_l]
-    | MSG_MOTION       [@id 126_l]
-    | MSG_CROSSING (* 0x7f_l *)
-    | MSG_FOCUS    (* 0x80_l *)
+    | MSG_BUTTON
+    | MSG_MOTION
+    | MSG_CROSSING
+    | MSG_FOCUS
     (*| MSG_RESIZE - DEPRECATED; NOT IMPLEMENTED *)
     | MSG_CREATE        [@id 130_l] (* 0x82_l *)
     | MSG_DESTROY
     | MSG_MAP
-    | MSG_UNMAP         [@id 133_l] (* 0x85_l *)
-    | MSG_CONFIGURE     [@id 134_l] (* 0x86_l *)
+    | MSG_UNMAP
+    | MSG_CONFIGURE
     | MSG_MFNDUMP
     | MSG_SHMIMAGE
-    | MSG_CLOSE         [@id 137_l]
+    | MSG_CLOSE
     | MSG_EXECUTE
     | MSG_CLIPBOARD_REQ
     | MSG_CLIPBOARD_DATA
     | MSG_WMNAME
     | MSG_KEYMAP_NOTIFY
-    | MSG_DOCK          [@id 140_l] (* 0x8c_l *)
+    | MSG_DOCK
     | MSG_WINDOW_HINTS
-    | MSG_WINDOW_FLAGS  [@id 142_l] (* 0x8e_l *)
-    | MSG_WMCLASS [@id 143_l] (* 0x8f_l *)
+    | MSG_WINDOW_FLAGS
+    | MSG_WMCLASS
     (*| MSG_MAX [@id 147l]*)
     [@@uint32_t]
   ]
