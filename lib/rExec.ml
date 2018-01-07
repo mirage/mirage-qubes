@@ -34,11 +34,20 @@ let vchan_base_port =
   | `Error msg -> failwith msg
   | `Ok port -> port
 
-let send t ~ty data =
+let max_data_chunk = 4096
+(** Max size for data chunks. See MAX_DATA_CHUNK in qubes-linux-utils/qrexec-lib/qrexec.h *)
+
+let rec send t ~ty data =
+  let data, data' = Cstruct.split data (min max_data_chunk (Cstruct.len data)) in
   let hdr = Cstruct.create sizeof_msg_header in
   set_msg_header_ty hdr (int_of_type ty);
   set_msg_header_len hdr (Cstruct.len data |> Int32.of_int);
-  QV.send t [hdr; data]
+  if Cstruct.len data' = 0
+  then QV.send t [hdr; data]
+  else QV.send t [hdr; data] >>= function
+    | `Eof -> return `Eof
+    | `Ok () ->
+      send t ~ty data'
 
 let recv t =
   QV.recv t >>!= fun (hdr, data) ->
