@@ -1,12 +1,18 @@
 language: c
-sudo: required
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+services:
+- docker
 env:
   global:
-  - PACKAGE=mirage-qubes EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
+  - PINS="mirage-qubes:. mirage-qubes-ipv4:."
+  - DISTRO="debian-stable"
   matrix:
-  - OCAML_VERSION=4.03
-  - OCAML_VERSION=4.03 DEPOPTS="ipaddr tcpip"
-  - OCAML_VERSION=4.04
-  - OCAML_VERSION=4.04 DEPOPTS="ipaddr tcpip"
+  - PACKAGE="mirage-qubes" OCAML_VERSION="4.03.0"
+  - PACKAGE="mirage-qubes" OCAML_VERSION="4.04.2"
+  - PACKAGE="mirage-qubes" OCAML_VERSION="4.05.0"
+  - PACKAGE="mirage-qubes" OCAML_VERSION="4.06.0"
+  - PACKAGE="mirage-qubes-ipv4" OCAML_VERSION="4.03.0"
+  - PACKAGE="mirage-qubes-ipv4" OCAML_VERSION="4.04.2"
+  - PACKAGE="mirage-qubes-ipv4" OCAML_VERSION="4.05.0"
+  - PACKAGE="mirage-qubes-ipv4" OCAML_VERSION="4.06.0"
