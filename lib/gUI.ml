@@ -39,13 +39,15 @@ let pp_event fmt event =
   | Clipboard_request -> pf() "Clipboard_request"
   | Clipboard_data cs -> pf() "Clipboard_data: %S" (Cstruct.to_string cs)
   | Focus {mode;detail} -> pf() "Focus mode: %ld detail: %ld" mode detail
-  | Keypress {x;y;state;keycode} ->
+  | Keypress {x;y;state;keycode; ty = _ } ->
     pf() "Keypress x: %ld y: %ld state: %ld keycode: %ld" x y state keycode
   | Motion m -> pf() "Motion x: %d y: %d state: %ld is_hint: %d"
                       m.x m.y m.state m.is_hint
   | Window_close -> pf() "Window_close"
-  | Window_crossing {ty;x;y} ->
-    pf() "Window_crossing type type: %ld x: %ld y: %ld" ty x y
+  | Window_crossing {ty;x;y ; state ; mode ; detail ; focus } ->
+    pf() "Window_crossing type type: %ld x: %ld y: %ld \
+          state: %ld mode: %ld detail: %ld focus: %ld "
+      ty x y state mode detail focus
   | Window_destroy -> pf() "Window_destroy"
 
 type window_id = Cstruct.uint32
@@ -70,10 +72,6 @@ let decode_FOCUS buf =
   } in
   Focus focus
 
-let decode_MSG_DESTROY buf =
-  Log.warn (fun f -> f "Event: DESTROY: %a" Cstruct.hexdump_pp buf) ;
-  Window_destroy
-
 let decode_MSG_CLOSE buf =
   Log.warn (fun f -> f "Event: CLOSE: %a" Cstruct.hexdump_pp buf) ;
   Window_close
@@ -81,18 +79,6 @@ let decode_MSG_CLOSE buf =
 let decode_CLIPBOARD_DATA buf =
   Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" Cstruct.hexdump_pp buf);
   Clipboard_data buf
-
-let decode_MSG_MOTION buf =
-   let Some m = Formats.GUI.decode_msg_motion buf in
-   Motion m
-
-let decode_MSG_CROSSING buf =
-  let Some m = decode_msg_crossing buf in
-  Window_crossing m
-
-let decode_MSG_BUTTON buf =
-  Log.warn (fun f -> f "Event: BUTTON: %a" Cstruct.hexdump_pp buf) ;
-  let Some m = decode_msg_button buf in Button m
 
 let recv_event (window:window) =
   Lwt_mvar.take window.mvar
@@ -111,7 +97,7 @@ let set_title (window : window) title =
 
 let int32_of_window (w : window) : int32 = w.no
 
-let create_window ?(parent=(0l:window_id)) ~width ~height t
+let create_window ?(parent=(0l:window_id)) ~x ~y ~title ~width ~height t
   : window S.or_eof Lwt.t =
   let w : window = { no = List.length t.mvar |> Int32.of_int ;
                      mvar = Lwt_mvar.create_empty () ;
@@ -122,11 +108,11 @@ let create_window ?(parent=(0l:window_id)) ~width ~height t
   t.mvar <- w :: t.mvar ;
   let messages =
     let override_redirect = 0l in
-    [Formats.GUI.make_msg_create ~width ~height ~x:0l ~y:0l
-       ~override_redirect ~parent:0l ~window ;
+    [Formats.GUI.make_msg_create ~width ~height ~x ~y
+       ~override_redirect ~parent ~window ;
      Formats.GUI.make_msg_map_info ~override_redirect ~transient_for:0l ~window;
-     Formats.GUI.make_msg_wmname ~window ~wmname:"my window" ;
-     Formats.GUI.make_msg_configure ~width ~height ~x:0l ~y:0l ~window ;
+     Formats.GUI.make_msg_wmname ~window ~wmname:title ;
+     Formats.GUI.make_msg_configure ~width ~height ~x ~y ~window ;
     ]
   in
   send t messages
@@ -190,13 +176,22 @@ let rec listen t () =
                          Cstruct.hexdump_pp msg_buf); Lwt.return (UNIT ())
   | Some MSG_KEYPRESS -> Lwt.return @@ decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> Lwt.return @@ decode_FOCUS msg_buf
-  | Some MSG_MOTION -> Lwt.return @@ decode_MSG_MOTION msg_buf
+  | Some MSG_MOTION -> begin match decode_msg_motion msg_buf with
+      | Some event -> Lwt.return @@ Motion event
+      | None -> Lwt.fail_with "Invalid MSG_MOTION during decoding"
+      end
   | Some MSG_CLIPBOARD_REQ ->
     Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ;
     Lwt.return Clipboard_request
-  | Some MSG_CROSSING -> Lwt.return @@ decode_MSG_CROSSING msg_buf
+  | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
+      | Some event -> Lwt.return @@ Window_crossing event
+      | None -> Lwt.fail_with "Invalid MSG_CROSSING during decoding"
+      end
   | Some MSG_CLOSE -> Lwt.return @@ decode_MSG_CLOSE msg_buf
-  | Some MSG_BUTTON -> Lwt.return @@ decode_MSG_BUTTON msg_buf
+  | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
+      | Some button_event -> Lwt.return (Button button_event)
+      | None -> Lwt.fail_with "Invalid MSG_BUTTON decoding"
+      end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
     Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S"
@@ -209,8 +204,10 @@ let rec listen t () =
     Log.warn (fun f -> f "Event: CONFIGURE: %a" Cstruct.hexdump_pp msg_buf) ;
     (* TODO here we are ACK'ing to Qubes that we accept the new dimensions -
             perhaps the user should have a say in that: *)
-    QV.send t.qv [msg_header; msg_buf] >>= (function `Ok () ->
-        Lwt.return @@ UNIT ())
+    QV.send t.qv [msg_header; msg_buf] >>= begin function
+        | `Ok () -> Lwt.return @@ UNIT ()
+        | `Eof -> Lwt.fail_with "EOF"
+      end
   | Some MSG_MAP ->
     Log.warn (fun f -> f "Event: MAP: %a" Cstruct.hexdump_pp msg_buf)
     ; Lwt.return @@ UNIT()
