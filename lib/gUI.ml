@@ -85,7 +85,6 @@ let decode_CLIPBOARD_DATA buf =
 
 let int32_of_window (w : window) : int32 = w.no
 
-
 let decode_MSG_DESTROY buf =
   Log.warn (fun f -> f "Event: DESTROY: %s" (Cstruct.to_string buf)) ;
   Window_destroy
@@ -100,7 +99,7 @@ let decode_MSG_MOTION buf =
     Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" Cstruct.hexdump_pp buf);
     UNIT ()
 
-let decode_MSG_CROSSING buf =
+let _decode_MSG_CROSSING buf =
   match decode_msg_crossing buf with
   | Some m ->
     Log.warn (fun f -> f "Event: CROSSING: type: %ld x: %ld y: %ld" m.ty m.x m.y);
@@ -109,7 +108,7 @@ let decode_MSG_CROSSING buf =
     Log.warn (fun f -> f "attempted to decode a crossing event, but we were not successful: %a" Cstruct.hexdump_pp buf);
     UNIT ()
 
-let decode_MSG_BUTTON buf =
+let _decode_MSG_BUTTON buf =
   match decode_msg_button buf with
   | Some m ->
     Log.warn (fun f -> f "Event: BUTTON: type: %ld x: %ld y: %ld" m.ty m.x m.y);
@@ -141,6 +140,28 @@ let set_title (window : window) title =
   QV.send window.qv
   [Formats.GUI.make_msg_wmname ~window:window.no ~wmname:title]
 
+let create_window ?(parent=(0l:window_id)) ~x ~y ~title ~width ~height t
+  : window S.or_eof Lwt.t =
+  let w : window = { no = List.length t.mvar |> Int32.of_int ;
+                     mvar = Lwt_mvar.create_empty () ;
+                     qv = t.qv }
+  in
+  let window = w.no in
+  Logs.warn (fun m -> m "Qubes.GUI: Creating new window id %ld" window);
+  t.mvar <- w :: t.mvar ;
+  let messages =
+    let override_redirect = 0l in
+    [Formats.GUI.make_msg_create ~width ~height ~x ~y
+       ~override_redirect ~parent ~window ;
+     Formats.GUI.make_msg_map_info ~override_redirect ~transient_for:0l ~window;
+     Formats.GUI.make_msg_wmname ~window ~wmname:title ;
+     Formats.GUI.make_msg_configure ~width ~height ~x ~y ~window ;
+    ]
+  in
+  send t messages
+  >>= function | `Ok () -> Lwt.return (`Ok w)
+               | `Eof -> Lwt.return `Eof
+
 let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:gui_agent_port () >>= fun qv ->
@@ -164,28 +185,6 @@ let connect ~domid () =
   Lwt.async (debug_window main_window) ;
   Lwt.return { qv ;
                mvar = [main_window] }
-
-let create_window ?(parent=(0l:window_id)) ~x ~y ~title ~width ~height t
-  : window S.or_eof Lwt.t =
-  let w : window = { no = List.length t.mvar |> Int32.of_int ;
-                     mvar = Lwt_mvar.create_empty () ;
-                     qv = t.qv }
-  in
-  let window = w.no in
-  Logs.warn (fun m -> m "Qubes.GUI: Creating new window id %ld" window);
-  t.mvar <- w :: t.mvar ;
-  let messages =
-    let override_redirect = 0l in
-    [Formats.GUI.make_msg_create ~width ~height ~x ~y
-       ~override_redirect ~parent ~window ;
-     Formats.GUI.make_msg_map_info ~override_redirect ~transient_for:0l ~window;
-     Formats.GUI.make_msg_wmname ~window ~wmname:title ;
-     Formats.GUI.make_msg_configure ~width ~height ~x ~y ~window ;
-    ]
-  in
-  send t messages
-  >>= function | `Ok () -> Lwt.return (`Ok w)
-               | `Eof -> Lwt.return `Eof
 
 let rec listen t () =
   QV.recv t.qv >>= function
@@ -227,9 +226,15 @@ let rec listen t () =
   | Some MSG_CLIPBOARD_REQ ->
     Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ;
     Lwt.return Clipboard_request
-  | Some MSG_CROSSING -> Lwt.return @@ decode_MSG_CROSSING msg_buf
+  | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
+      | Some event -> Lwt.return @@ Window_crossing event
+      | None -> Lwt.fail_with "Invalid MSG_CROSSING during decoding"
+      end
   | Some MSG_CLOSE -> Lwt.return @@ decode_MSG_CLOSE msg_buf
-  | Some MSG_BUTTON -> Lwt.return @@ decode_MSG_BUTTON msg_buf
+  | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
+      | Some button_event -> Lwt.return (Button button_event)
+      | None -> Lwt.fail_with "Invalid MSG_BUTTON decoding"
+      end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
     Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S"
