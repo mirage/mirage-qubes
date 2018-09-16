@@ -1,3 +1,12 @@
+### 0.6 (2018-09-16)
+
+- qrexec message chunking (#21 @reynir)
+- more extensive support of Qubes GUI protocol (#17 @cfcs, #20 @reynir)
+- Adjust to tcpip 3.5.0 and mirage-protocols-lwt 1.4.0 changes mirage-qubes-ipv4
+  Static_ipv4.Make now requires a Random device and a monotonic clock
+  connect requires a Mclock.t
+  Mirage_protocols_lwt.IPV4 does not define the type alias ethif (#24 @hannesm)
+
 ### 0.5 (2017-06-15)
 
 - Split into 2 opam packages: mirage-qubes and mirage-qubes-ipv4
