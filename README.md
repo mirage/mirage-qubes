@@ -1,7 +1,4 @@
-mirage-qubes
-============
-
-Implementations of various Qubes protocols:
+# mirage-qubes - Implementations of various Qubes protocols
 
 - `Qubes.RExec`: provide services to other VMs
 - `Qubes.GUI`: just enough of the GUI protocol so that Qubes accepts the AppVM
