@@ -4,9 +4,10 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.t
 script: bash -ex .travis-opam.sh
 env:
   global:
-  - PACKAGE=mirage-qubes EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
+  - PINS="mirage-qubes.dev:. mirage-qubes-ipv4.dev:."
+  - EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
   matrix:
-  - OCAML_VERSION=4.03
-  - OCAML_VERSION=4.03 DEPOPTS="ipaddr tcpip"
-  - OCAML_VERSION=4.04
-  - OCAML_VERSION=4.04 DEPOPTS="ipaddr tcpip"
+  - OCAML_VERSION=4.04 PACKAGE=mirage-qubes
+  - OCAML_VERSION=4.04 PACKAGE=mirage-qubes-ipv4
+  - OCAML_VERSION=4.05 PACKAGE=mirage-qubes
+  - OCAML_VERSION=4.05 PACKAGE=mirage-qubes-ipv4
