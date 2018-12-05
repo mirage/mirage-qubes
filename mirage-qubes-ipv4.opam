@@ -16,7 +16,7 @@ depends: [
   "ocamlfind" {build}
   "jbuilder"  {build & >="1.0+beta9"}
   "mirage-qubes" { >= "0.6" }
-  "tcpip" { >= "3.5.0" }
+  "tcpip" { >= "3.6.0" }
   "ipaddr"
   "mirage-random"
   "mirage-clock"
