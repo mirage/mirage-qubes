@@ -1,3 +1,8 @@
+### 0.6.1 (2019-01-17)
+
+- mirage-qubes-ipv4: compatibility with ipaddr 3.0.0 (#29 @hannesm)
+- upgrade opam files to version 2.0
+
 ### 0.6 (2018-09-16)
 
 - qrexec message chunking (#21 @reynir)
