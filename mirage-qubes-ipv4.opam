@@ -8,12 +8,12 @@ dev-repo:     "git+https://github.com/mirage/mirage-qubes.git"
 doc:          "https://mirage.github.io/mirage-qubes"
 
 build: [
-  [ "jbuilder" "subst" "-p" name] {pinned}
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "subst"] {pinned}
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
 
 depends: [
-  "jbuilder"  {build & >="1.0+beta9"}
+  "dune"  {build & >= "1.0"}
   "mirage-qubes" { >= "0.6" }
   "tcpip" { >= "3.5.0" }
   "ipaddr" { >= "3.0.0" }
