@@ -2,7 +2,7 @@ module Make
     (D: Qubes.S.DB)
     (R: Mirage_random.C)
     (C: Mirage_clock.MCLOCK)
-    (Ethernet : Mirage_protocols_lwt.ETHIF)
+    (Ethernet : Mirage_protocols_lwt.ETHERNET)
     (Arp : Mirage_protocols_lwt.ARP) = struct
   include Static_ipv4.Make(R)(C)(Ethernet)(Arp)
   let connect db clock ethif arp =
