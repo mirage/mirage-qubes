@@ -19,10 +19,9 @@ depends: [
   "ipaddr" { >= "3.0.0" }
   "mirage-random"
   "mirage-clock"
-  "mirage-protocols-lwt"
+  "mirage-protocols-lwt" { >= "2.0.0" }
   "cstruct" { >= "1.9.0" }
   "lwt"
-  "mirage-types-lwt" { >= "3.0.0" }
   "logs" { >= "0.5.0" }
   "ocaml" { >= "4.03.0" }
 ]
