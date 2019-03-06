@@ -8,21 +8,20 @@ dev-repo:     "git+https://github.com/mirage/mirage-qubes.git"
 doc:          "https://mirage.github.io/mirage-qubes"
 
 build: [
-  [ "jbuilder" "subst" "-p" name] {pinned}
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "subst"] {pinned}
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
 
 depends: [
-  "jbuilder"  {build & >="1.0+beta9"}
+  "dune"  {build & >= "1.0"}
   "mirage-qubes" { >= "0.6" }
   "tcpip" { >= "3.5.0" }
   "ipaddr" { >= "3.0.0" }
   "mirage-random"
   "mirage-clock"
-  "mirage-protocols-lwt"
+  "mirage-protocols-lwt" { >= "2.0.0" }
   "cstruct" { >= "1.9.0" }
   "lwt"
-  "mirage-types-lwt" { >= "3.0.0" }
   "logs" { >= "0.5.0" }
   "ocaml" { >= "4.03.0" }
 ]

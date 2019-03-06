@@ -62,24 +62,30 @@ let decode_FOCUS buf =
   Log.warn (fun f ->
       f "Focus event: mode: %ld detail: %ld" focus.mode focus.detail)
 
-let decode_DESTROY buf =
+let _decode_DESTROY buf =
   Log.warn (fun f -> f "DESTROY event: %s" (Cstruct.to_string buf))
 
-let decode_CLOSE buf =
+let _decode_CLOSE buf =
   Log.warn (fun f -> f "CLOSE event: %s" (Cstruct.to_string buf))
 
 let decode_CLIPBOARD_DATA buf =
   Log.warn (fun f ->
       f "Event: Received clipboard data from dom0: %S" (Cstruct.to_string buf))
 
-let decode_MSG_MOTION buf =
-   let Some m = Formats.GUI.decode_msg_motion buf in
-   Log.warn (fun f -> f "Motion event: x: %d y: %d state: %ld is_hint: %d"
-                m.x m.y m.state m.is_hint)
+let _decode_MSG_MOTION buf =
+  match Formats.GUI.decode_msg_motion buf with
+  | Some m ->
+    Log.warn (fun f -> f "Motion event: x: %d y: %d state: %ld is_hint: %d"
+                 m.x m.y m.state m.is_hint)
+  | None ->
+    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful")
 
-let decode_MSG_CROSSING buf =
-  let Some m = decode_msg_crossing buf in
-  Log.warn (fun f -> f "Event: CROSSING: type: %ld x: %ld y: %ld" m.ty m.x m.y)
+let _decode_MSG_CROSSING buf =
+  match decode_msg_crossing buf with
+  | Some m ->
+    Log.warn (fun f -> f "Event: CROSSING: type: %ld x: %ld y: %ld" m.ty m.x m.y)
+  | None ->
+    Log.warn (fun f -> f "attempted to decode a crossing event, but we were not successful")
 
 let rec listen t =
   QV.recv t >>= function

@@ -1,0 +1,5 @@
+(library
+ (name qubesdb_ipv4)
+ (public_name mirage-qubes-ipv4)
+ (libraries cstruct lwt logs tcpip tcpip.ipv4 ipaddr
+   mirage-protocols-lwt mirage-qubes mirage-clock mirage-random))

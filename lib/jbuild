@@ -1,7 +1,0 @@
-(library
- ((name qubes)
-  (public_name mirage-qubes)
-  (libraries (cstruct vchan-xen xen-evtchn xen-gnt mirage-xen lwt mirage-types-lwt logs))
-  (preprocess (pps (cstruct.ppx)))
-))
-
