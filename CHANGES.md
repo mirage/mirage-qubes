@@ -1,3 +1,8 @@
+### v0.7.0 (2019-03-06)
+
+- mirage-qubes-ipv4: compatibility with mirage-protocols 2.0.0 and mirage-net 2.0.0
+  (#31 @yomimono)
+
 ### 0.6.1 (2019-01-17)
 
 - mirage-qubes-ipv4: compatibility with ipaddr 3.0.0 (#29 @hannesm)
