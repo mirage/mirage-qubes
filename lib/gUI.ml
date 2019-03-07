@@ -227,8 +227,8 @@ let rec listen t () =
   | Some MSG_CONFIGURE ->
     Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a"
                  Cstruct.hexdump_pp msg_buf) ;
-    (* TODO here we are ACK'ing to Qubes that we accept the new dimensions -
-            perhaps the user should have a say in that: *)
+    (* TODO here we should ACK to Qubes that we accept the new dimensions,
+            atm this is the responsibility of the user: *)
     decode_CONFIGURE msg_buf
 
   (* parse variable-length messages: *)
