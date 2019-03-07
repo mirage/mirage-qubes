@@ -95,24 +95,6 @@ let decode_MSG_MOTION buf =
     Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" Cstruct.hexdump_pp buf);
     UNIT ()
 
-let _decode_MSG_CROSSING buf =
-  match decode_msg_crossing buf with
-  | Some m ->
-    Log.warn (fun f -> f "Event: CROSSING: type: %ld x: %ld y: %ld" m.ty m.x m.y);
-    Window_crossing m
-  | None ->
-    Log.warn (fun f -> f "attempted to decode a crossing event, but we were not successful: %a" Cstruct.hexdump_pp buf);
-    UNIT ()
-
-let _decode_MSG_BUTTON buf =
-  match decode_msg_button buf with
-  | Some m ->
-    Log.warn (fun f -> f "Event: BUTTON: type: %ld x: %ld y: %ld" m.ty m.x m.y);
-    Button m
-  | None ->
-    Log.warn (fun f -> f "attempted to decode a button event, but we were not successful: %a" Cstruct.hexdump_pp buf) ;
-    UNIT ()
-
 let decode_CONFIGURE buf =
   match decode_msg_configure buf with
   | Some m -> Configure m
@@ -223,13 +205,15 @@ let rec listen t () =
     Clipboard_request
   | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
       | Some event -> Window_crossing event
-      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding")
+      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a"
+                             Cstruct.hexdump_pp msg_buf)
               ; UNIT ()
       end
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
       | Some button_event -> Button button_event
-      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding")
+      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a"
+                             Cstruct.hexdump_pp msg_buf)
         ; UNIT ()
       end
   | Some MSG_KEYMAP_NOTIFY ->
