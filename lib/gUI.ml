@@ -85,10 +85,6 @@ let decode_CLIPBOARD_DATA buf =
 
 let int32_of_window (w : window) : int32 = w.no
 
-let decode_MSG_DESTROY buf =
-  Log.warn (fun f -> f "Event: DESTROY: %s" (Cstruct.to_string buf)) ;
-  Window_destroy
-
 let decode_MSG_MOTION buf =
   match Formats.GUI.decode_msg_motion buf with
   | Some m ->
@@ -191,10 +187,9 @@ let rec listen t () =
   | `Eof -> failwith "End-of-file from GUId in dom0"
   | `Ok (msg_header , msg_buf) ->
   let window = get_msg_header_window msg_header in
-  let send_to_window promise =
-    promise >>= fun resolved ->
+  let send_to_window event =
     match List.find (fun t -> t.no = window) t.mvar with
-    | w -> Lwt_mvar.put w.mvar resolved
+    | w -> Lwt_mvar.put w.mvar event
     | exception _ -> Log.warn (fun m -> m "No such window %ld" window);
                      Lwt.return ()
   in
@@ -225,38 +220,36 @@ let rec listen t () =
   | Some MSG_MOTION -> decode_MSG_MOTION msg_buf
   | Some MSG_CLIPBOARD_REQ ->
     Log.warn (fun f -> f "Event: dom0 requested our clipboard.") ;
-    Lwt.return Clipboard_request
+    Clipboard_request
   | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
-      | Some event -> Lwt.return @@ Window_crossing event
-      | None -> Lwt.fail_with "Invalid MSG_CROSSING during decoding"
+      | Some event -> Window_crossing event
+      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding")
+              ; UNIT ()
       end
-  | Some MSG_CLOSE -> Lwt.return @@ decode_MSG_CLOSE msg_buf
+  | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
-      | Some button_event -> Lwt.return (Button button_event)
-      | None -> Lwt.fail_with "Invalid MSG_BUTTON decoding"
+      | Some button_event -> Button button_event
+      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding")
+        ; UNIT ()
       end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
     Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S"
       Cstruct.(to_string msg_buf)) ;
-    Lwt.return @@ UNIT()
+    UNIT()
   | Some MSG_WINDOW_FLAGS ->
     Log.warn (fun f -> f "Event: WINDOW_FLAGS: %S" Cstruct.(to_string msg_buf))
-      ; Lwt.return @@ UNIT ()
+      ; UNIT ()
   | Some MSG_CONFIGURE ->
     Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a"
                  Cstruct.hexdump_pp msg_buf) ;
     (* TODO here we are ACK'ing to Qubes that we accept the new dimensions -
             perhaps the user should have a say in that: *)
     decode_CONFIGURE msg_buf
-  | Some MSG_SHMIMAGE
-  | Some MSG_WMCLASS  ->
-    Log.warn (fun f -> f "Event: Unhandled fixed-length: %S"
-                 Cstruct.(to_string msg_buf)); UNIT()
 
   (* parse variable-length messages: *)
 
-  | Some MSG_CLIPBOARD_DATA -> Lwt.return @@ decode_CLIPBOARD_DATA msg_buf
+  | Some MSG_CLIPBOARD_DATA -> decode_CLIPBOARD_DATA msg_buf
 
   (* handle unimplemented/unexpected messages:*)
 
@@ -267,11 +260,11 @@ let rec listen t () =
        to send to the VM: *)
     Log.warn (fun f ->
         f "UNEXPECTED message received. Data: %a"
-          Cstruct.hexdump_pp msg_buf); Lwt.return @@ UNIT()
+          Cstruct.hexdump_pp msg_buf); UNIT()
   | None ->
     Log.warn (fun f -> f "Unexpected data with unknown type: [%a] %aa"
                  Cstruct.hexdump_pp msg_header
                  Cstruct.hexdump_pp msg_buf) ;
-    Lwt.return @@ UNIT()
+    UNIT()
   end
   >>= fun () -> listen t ()

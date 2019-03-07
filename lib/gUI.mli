@@ -16,6 +16,7 @@ type event =
   | Motion of msg_motion_t
   | Clipboard_request
   | Clipboard_data of Cstruct.t
+  | Configure of Formats.GUI.msg_configure_t
   | Window_crossing of msg_crossing_t
   | Window_destroy
   | Window_close
