@@ -201,9 +201,10 @@ let rec listen t () =
     Log.warn (fun f -> f "Event: WINDOW_FLAGS: %S" Cstruct.(to_string msg_buf))
       ; Lwt.return @@ UNIT ()
   | Some MSG_CONFIGURE ->
-    Log.warn (fun f -> f "Event: CONFIGURE: %a" Cstruct.hexdump_pp msg_buf) ;
-    (* TODO here we are ACK'ing to Qubes that we accept the new dimensions -
-            perhaps the user should have a say in that: *)
+    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a"
+                 Cstruct.hexdump_pp msg_buf) ;
+    (* TODO here we should ACK to Qubes that we accept the new dimensions,
+            atm this is the responsibility of the user: *)
     QV.send t.qv [msg_header; msg_buf] >>= begin function
         | `Ok () -> Lwt.return @@ UNIT ()
         | `Eof -> Lwt.fail_with "EOF"
