@@ -5,7 +5,6 @@ script: bash -ex .travis-opam.sh
 env:
   global:
   - PINS="mirage-qubes.dev:. mirage-qubes-ipv4.dev:."
-  - EXTRA_REMOTES="https://github.com/mirage/mirage-dev.git"
   matrix:
   - OCAML_VERSION=4.04 PACKAGE=mirage-qubes
   - OCAML_VERSION=4.04 PACKAGE=mirage-qubes-ipv4
