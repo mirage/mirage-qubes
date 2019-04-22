@@ -80,10 +80,26 @@ module Qrexec = struct
     | `Exec_cmdline -> 0x200l
     | `Just_exec -> 0x201l
     | `Service_connect -> 0x202l
+    | `Service_refused -> 0x203l
     | `Trigger_service -> 0x210l
     | `Connection_terminated -> 0x211l
     | `Hello -> 0x300l
     | `Unknown x -> x
+
+  let string_of_type = function
+    | `Data_stdin -> "DATA_STDIN"
+    | `Data_stdout -> "DATA_STDOUT"
+    | `Data_stderr -> "DATA_STDERR"
+    | `Data_exit_code -> "DATA_EXIT_CODE"
+    | `Exec_cmdline -> "MSG_EXEC_CMDLINE"
+    | `Just_exec -> "MSG_JUST_EXEC"
+    | `Service_connect -> "MSG_SERVICE_CONNECT"
+    | `Service_refused -> "MSG_SERVICE_REFUSED"
+    | `Trigger_service -> "MSG_TRIGGER_SERVICE"
+    | `Connection_terminated -> "MSG_CONNECTION_TERMINATED"
+    | `Hello -> "MSG_HELLO"
+    | `Unknown x -> "Unknown message: " ^ (Int32.to_string x)
+
 
   module Framing = struct
     let header_size = sizeof_msg_header
