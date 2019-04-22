@@ -54,7 +54,8 @@ let recv t =
   let ty = get_msg_header_ty hdr |> type_of_int in
   return (`Ok (ty, data))
 
-module Flow = struct
+module Flow =
+
   type t = {
     dstream : QV.t;
     mutable stdin_buf : Cstruct.t;
@@ -87,8 +88,8 @@ module Flow = struct
     | `Just_exec -> return `Eof
     | `Exec_cmdline ->
     recv flow.dstream >>!= function
-    | `Data_stdin, empty when Cstruct.len empty = 0 -> return `Eof
-    | `Data_stdin, data -> return (`Ok data)
+    | (`Data_stdin | `Data_stdout), empty when Cstruct.len empty = 0 -> return `Eof
+    | `Data_stdin, data | `Data_stdout, data -> return (`Ok data)
     | ty, _ -> fail (error "Unknown message type %ld received" (int_of_type ty))
 
   let read flow =
@@ -225,6 +226,50 @@ let listen t handler =
         Log.info (fun f -> f "connection closed; ending listen loop");
         return `Done in
   loop () >|= fun `Done -> ()
+
+let request_service t ~target_domain ~service_name handler =
+  let request_id = "0" in
+  let write_trigger_service_parameters_into buf =
+    Cstruct.blit_from_string service_name 0 buf 0 (min (String.length service_name) 64);
+    Cstruct.blit_from_string target_domain 0 buf 64 (min (String.length target_domain) 32);
+    Cstruct.blit_from_string request_id 0 buf (64 + 32) (min (String.length request_id) 32);
+    buf
+  in
+  let tsp = write_trigger_service_parameters_into @@ Cstruct.create sizeof_trigger_service_params in
+  send t ~ty:`Trigger_service tsp >>= function
+  | `Eof -> Lwt.return @@ Error `Closed
+  | `Ok () ->
+    let rec try_recv () =
+      recv t >>= function
+      | `Eof -> Lwt.return @@ Error `Closed
+      | `Ok (`Service_refused, _) -> Lwt.return @@ Error `Permission_denied
+      | `Ok (`Service_connect, data) -> begin
+          let domid = get_exec_params_connect_domain data in
+          let port = get_exec_params_connect_port data in
+          Log.debug (fun f -> f "service_connect message received: domain %ld, port %ld" domid port);
+          Log.debug (fun f -> f "Initiating connection...");
+          (* vchan expects port to be a string that doesn't include
+             several invalid characters, none of which Int.to_string should return *)
+          match Vchan.Port.of_string (Int32.to_string port) with
+          | `Error s -> Lwt.return @@ Error(`Msg
+                                              ("failure translating vchan port number: " ^ s))
+          | `Ok port ->
+            QV.server ~domid:(Int32.to_int domid) ~port () >>= fun remote ->
+            send_hello remote >>= fun () ->
+            recv_hello remote >>= fun version ->
+            Log.debug (fun f -> f "server connected on port %s, using protocol version %ld" (Vchan.Port.to_string port) version);
+            let flow = Flow.create ~ty:(`Exec_cmdline) remote in
+            handler ~user:"none" "" flow >>= fun _ ->
+            Lwt.return (Ok ())
+        end
+      | `Ok (ty, _) ->
+        Log.warn (fun f -> f
+                     "unhandled qrexec message type received in response to \
+                      trigger service request: %ld (%s)"
+                     (int_of_type ty) (string_of_type ty));
+        try_recv ()
+    in
+    try_recv ()
 
 let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");

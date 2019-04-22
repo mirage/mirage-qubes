@@ -23,23 +23,17 @@ module type FLOW = sig
   type t
 
   val write : t -> Cstruct.t -> unit Lwt.t
-  (** Write to stdout *)
+
+  val read : t -> [`Ok of Cstruct.t | `Eof ] Lwt.t
+
+  val read_line : t -> [`Ok of string | `Eof ] Lwt.t
 
   val writef : t -> ('a, unit, string, unit Lwt.t) format4 -> 'a
-  (** Write a formatted line to stdout. *)
-
-  val ewrite : t -> Cstruct.t -> unit Lwt.t
-  (** Write to stderr *)
-
-  val ewritef : t -> ('a, unit, string, unit Lwt.t) format4 -> 'a
-  (** Write a formatted line to stderr. *)
-
-  val read : t -> [`Ok of Cstruct.t | `Eof] Lwt.t
-  (** Read from stdin. *)
-
-  val read_line : t -> [`Ok of string | `Eof] Lwt.t
-  (** Read a complete line from stdin. *)
 end
+
+module Stdout : FLOW
+module Stderr : FLOW
+module Stdin  : FLOW
 
 module type DB = sig
   type t

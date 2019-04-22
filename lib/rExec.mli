@@ -23,5 +23,16 @@ val listen :  t -> handler -> unit Lwt.t
     and handles each one asynchronously with [handler]. The loop ends if
     the client disconnects. *)
 
+val request_service : t -> target_domain:string -> service_name:string -> handler ->
+  (unit, [`Closed | `Permission_denied | `Msg of string ]) result Lwt.t
+(** [request_service t domain service ident handler] requests
+    via [t] that [domain] start a [service].
+    If the service is requested successfully, `handler` will be invoked
+    with the message flow.
+    [request_service] does not multiplex incoming messages based on a unique
+    identifier, so at most one active channel should be open between two domains
+    at a time.
+*)
+
 val disconnect : t -> unit Lwt.t
 (** Close the underlying vchan. This will cause any listening thread to finish. *)
