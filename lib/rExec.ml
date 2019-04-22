@@ -218,8 +218,8 @@ let listen t handler =
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
     | `Ok (ty, _) ->
-        Log.info (fun f -> f "unknown qrexec message type received: %ld"
-          (int_of_type ty));
+        Log.info (fun f -> f "unhandled qrexec message type received: %ld (%s)"
+          (int_of_type ty) (string_of_type ty));
         loop ()
     | `Eof ->
         Log.info (fun f -> f "connection closed; ending listen loop");
