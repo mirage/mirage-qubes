@@ -37,10 +37,19 @@ module Qrexec = struct
       } [@@little_endian]
   ]
 
+  [%%cstruct
+    type trigger_service_params = {
+      service_name : uint8_t [@len 64];
+      target_domain : uint8_t [@len 32];
+      request_id : uint8_t [@len 32]
+    } [@@little_endian]
+  ]
+
   type msg_type =
     [ `Exec_cmdline
     | `Just_exec
     | `Service_connect
+    | `Service_refused
     | `Trigger_service
     | `Connection_terminated
     | `Hello
@@ -57,6 +66,7 @@ module Qrexec = struct
     | 0x200l -> `Exec_cmdline
     | 0x201l -> `Just_exec
     | 0x202l -> `Service_connect
+    | 0x203l -> `Service_refused
     | 0x210l -> `Trigger_service
     | 0x211l -> `Connection_terminated
     | 0x300l -> `Hello
