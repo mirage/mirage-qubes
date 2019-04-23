@@ -231,5 +231,5 @@ let connect ~domid () =
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
   send_hello t >>= fun () ->
   recv_hello t >>= fun version ->
-  Log.info (fun f -> f "client connected, using protocol version %ld" version);
+  Log.info (fun f -> f "client connected on port %s, using protocol version %ld" (Vchan.Port.to_string vchan_base_port) version);
   return t
