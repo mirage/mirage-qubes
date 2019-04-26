@@ -54,15 +54,15 @@ let recv t =
   let ty = get_msg_header_ty hdr |> type_of_int in
   return (`Ok (ty, data))
 
-module Flow =
+module Flow = struct
 
   type t = {
     dstream : QV.t;
-    mutable stdin_buf : Cstruct.t;
+    mutable input_buf : Cstruct.t;
     ty : [`Just_exec | `Exec_cmdline];
   }
 
-  let create ~ty dstream = {dstream; stdin_buf = Cstruct.create 0; ty}
+  let create ~ty dstream = {dstream; input_buf = Cstruct.create 0; ty}
 
   let push ~stream flow buf =
     match flow.ty with
@@ -75,56 +75,114 @@ module Flow =
 
   let pushf ~stream flow fmt =
     fmt |> Printf.ksprintf @@ fun s ->
-      push ~stream flow (Cstruct.of_string (s ^ "\n"))
+    push ~stream flow (Cstruct.of_string (s ^ "\n"))
 
-  let write = push ~stream:`Data_stdout
-  let ewrite = push ~stream:`Data_stderr
-
-  let writef fmt = pushf ~stream:`Data_stdout fmt
-  let ewritef fmt = pushf ~stream:`Data_stderr fmt
-
-  let read_raw flow =
-    match flow.ty with
-    | `Just_exec -> return `Eof
-    | `Exec_cmdline ->
-    recv flow.dstream >>!= function
-    | (`Data_stdin | `Data_stdout), empty when Cstruct.len empty = 0 -> return `Eof
-    | `Data_stdin, data | `Data_stdout, data -> return (`Ok data)
-    | ty, _ -> fail (error "Unknown message type %ld received" (int_of_type ty))
-
-  let read flow =
-    if Cstruct.len flow.stdin_buf > 0 then (
-      let retval = flow.stdin_buf in
-      flow.stdin_buf <- Cstruct.create 0;
-      return (`Ok retval)
-    ) else read_raw flow
-
-  let rec read_line flow =
-    let buf = Cstruct.to_string flow.stdin_buf in
+  let rec read_line ~read_raw flow =
+    let buf = Cstruct.to_string flow.input_buf in
     let i =
       try Some (String.index buf '\n')
       with Not_found -> None in
     match i with
     | Some i ->
         let retval = String.sub buf 0 i in
-        flow.stdin_buf <- Cstruct.shift flow.stdin_buf (i + 1);
+        flow.input_buf <- Cstruct.shift flow.input_buf (i + 1);
         return (`Ok retval)
     | None ->
         read_raw flow >>!= fun buf ->
-        flow.stdin_buf <- Cstruct.append flow.stdin_buf buf;
-        read_line flow
+        flow.input_buf <- Cstruct.append flow.input_buf buf;
+        read_line ~read_raw flow
 
-  let close flow return_code =
+  let read ~read_raw flow =
+    if Cstruct.len flow.input_buf > 0 then (
+      let retval = flow.input_buf in
+      flow.input_buf <- Cstruct.create 0;
+      return (`Ok retval)
+    ) else read_raw flow
+
+  let close ~ty flow return_code =
     let msg = Cstruct.create sizeof_exit_status in
     set_exit_status_return_code msg (Int32.of_int return_code);
     Lwt.finalize
       (fun () ->
-        send flow.dstream ~ty:`Data_stdout (Cstruct.create 0) >>!= fun () ->
+        send flow.dstream ~ty (Cstruct.create 0) >>!= fun () ->
         send flow.dstream ~ty:`Data_exit_code msg >>!= fun () ->
         return (`Ok ())
       )
       (fun () -> disconnect flow.dstream)
 end
+
+module Stdout : S.FLOW with type t := Flow.t = struct
+
+  include Flow
+
+  let write = push ~stream:`Data_stdout
+  let writef fmt = pushf ~stream:`Data_stdout fmt
+
+  let read_raw flow =
+    match flow.ty with
+    | `Just_exec -> return `Eof
+    | `Exec_cmdline ->
+    recv flow.dstream >>!= function
+    | `Data_stdout, empty when Cstruct.len empty = 0 -> return `Eof
+    | `Data_stdout, data -> return (`Ok data)
+    | `Data_stdin, _ -> fail (error "stdin message received when we were expecting stdout - reversed flows?")
+    | `Data_stderr, _ -> fail (error "stderr message received when we were expecting stdout")
+    | ty, _ -> fail (error "Unknown message type %ld received" (int_of_type ty))
+
+
+  let read = Flow.read ~read_raw
+  let read_line = Flow.read_line ~read_raw
+
+  let close = Flow.close ~ty:`Data_stdout
+end
+
+module Stdin : S.FLOW with type t := Flow.t = struct
+
+  include Flow
+
+  let write = push ~stream:`Data_stdin
+  let writef fmt = pushf ~stream:`Data_stdin fmt
+
+  let read_raw flow =
+    match flow.ty with
+    | `Just_exec -> return `Eof
+    | `Exec_cmdline ->
+    recv flow.dstream >>!= function
+    | `Data_stdin, empty when Cstruct.len empty = 0 -> return `Eof
+    | `Data_stdin, data -> return (`Ok data)
+    | `Data_stdout, _ -> fail (error "stdout message received when we were expecting stdin - reversed flows?")
+    | `Data_stderr, _ -> fail (error "stderr message received when we were expecting stdin")
+    | ty, _ -> fail (error "Unknown message type %ld received" (int_of_type ty))
+
+  let read = Flow.read ~read_raw
+  let read_line = Flow.read_line ~read_raw
+
+  let close = Flow.close ~ty:`Data_stdin
+end
+
+module Stderr : S.FLOW with type t := Flow.t = struct
+  include Flow
+
+  let write = push ~stream:`Data_stderr
+  let writef fmt = pushf ~stream:`Data_stderr fmt
+
+  let read_raw flow =
+    match flow.ty with
+    | `Just_exec -> return `Eof
+    | `Exec_cmdline ->
+    recv flow.dstream >>!= function
+    | `Data_stderr, empty when Cstruct.len empty = 0 -> return `Eof
+    | `Data_stderr, data -> return (`Ok data)
+    | `Data_stdout, _ -> fail (error "stdout message received when we were expecting stderr")
+    | `Data_stdin, _ -> fail (error "stderr message received when we were expecting stderr")
+    | ty, _ -> fail (error "Unknown message type %ld received" (int_of_type ty))
+
+  let read = Flow.read ~read_raw
+  let read_line = Flow.read_line ~read_raw
+
+  let close = Flow.close ~ty:`Data_stderr
+end
+
 
 type handler = user:string -> string -> Flow.t -> int Lwt.t
 
@@ -142,7 +200,7 @@ let recv_hello t =
   | `Ok (ty, _) -> fail (error "Expected msg_hello, got %ld" (int_of_type ty))
 
 let try_close flow return_code =
-  Flow.close flow return_code >|= function
+  Flow.close ~ty:`Data_stdout flow return_code >|= function
   | `Ok () -> ()
   | `Eof -> Log.warn (fun f -> f "End-of-file while closing flow (with exit status %d)" return_code)
 

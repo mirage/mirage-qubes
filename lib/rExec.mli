@@ -6,7 +6,13 @@
 
 type t
 
-module Flow : S.FLOW
+module Flow : sig
+  type t
+end
+
+module Stdout : S.FLOW with type t := Flow.t
+module Stdin  : S.FLOW with type t := Flow.t
+module Stderr : S.FLOW with type t := Flow.t
 
 type handler = user:string -> string -> Flow.t -> int Lwt.t
 (** A handler gets a command-line and a two-way connection to the requesting client each time
