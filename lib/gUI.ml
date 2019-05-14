@@ -81,7 +81,16 @@ let decode_MSG_CLOSE buf =
 
 let decode_CLIPBOARD_DATA buf =
   Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" Cstruct.hexdump_pp buf);
-  Clipboard_data buf
+  let len = get_msg_clipboard_data_len buf |> Int32.to_int in
+  match
+    Int32.compare (get_msg_clipboard_data_len buf) 0l = -1
+    || Cstruct.len buf + sizeof_msg_clipboard_data <> len with
+  | true ->
+    Logs.warn (fun m -> m "Got invalid CLIPBOARD_DATA msg from dom0");
+    UNIT ()
+  | false ->
+    (* TODO expose the window id of the recipient window *)
+    Clipboard_data (Cstruct.sub buf sizeof_msg_clipboard_data len)
 
 let int32_of_window (w : window) : int32 = w.no
 
@@ -175,7 +184,7 @@ let rec listen t () =
     | exception _ -> Log.warn (fun m -> m "No such window %ld" window);
                      Lwt.return ()
   in
-  let msg_len    = get_msg_header_untrusted_len msg_header |> Int32.to_int in
+  let msg_len = get_msg_header_untrusted_len msg_header |> Int32.to_int in
   send_to_window
   begin match int_to_msg_type (get_msg_header_ty msg_header) with
 
