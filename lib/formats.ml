@@ -475,8 +475,6 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
        >> "shmid" and "domid" parameters are just placeholders (to be filled
        >> by *qubes_guid* ), so that we can use the same structure when talking
        >> to shmoverride.so **)
-    (* set_shm_cmd_domid   body Int32.(of_int domid);
-       set_shm_cmd_shmid   body 0l; *)
 
     (* TODO let n = (4 * width * height + offset
                      + (XC_PAGE_SIZE-1)) / XC_PAGE_SIZE; *)
