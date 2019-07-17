@@ -117,12 +117,14 @@ module GUI = struct
       } [@@little_endian]
   ]
 
+  (** Dom0 -> VM, VM -> Dom0: MSG_CLIPBOARD_DATA:
+      a normal header, followed by a uint8 array of size len *)
   [%%cstruct
-      type msg_clipboard_data = {
-        len_big : uint32_t [@big_endian];
-        len_little : uint32_t;
-        (* followed by a uint8 array of size len *)
-      } [@@little_endian]
+    type msg_clipboard_data = {
+      window_id : uint32_t [@big_endian];
+      len : uint32_t;
+      (* followed by a uint8 array of size len *)
+    } [@@little_endian]
   ]
 
   (** VM -> Dom0 *)
@@ -139,9 +141,10 @@ module GUI = struct
 
   type msg_keypress_t =
     {
+        ty    : int32; (* TODO make bool? XKeyEvent->type, see KeyPressMask/KeyReleaseMask *)
         x     : int32;
         y     : int32;
-        state : int32;
+        state : int32; (* key mask *)
         keycode : int32;
     }
 
@@ -149,13 +152,21 @@ module GUI = struct
   (* https://github.com/drinkcat/chroagh/commit/1d38c2e2422f97b6bf55580c9efc027ecf9f2721 *)
   [%%cstruct
       type msg_keypress = {
-        ty    : uint32_t; (* TODO *)
+        ty    : uint32_t;
         x     : uint32_t;
         y     : uint32_t;
         state : uint32_t; (** 1:down, 0:up *)
         keycode : uint32_t;
       } [@@little_endian]
   ]
+
+  type msg_button_t = {
+   ty : int32 ; (* TODO make bool? ButtonPress / ButtonRelease*)
+    x : int32 ;
+    y : int32 ;
+    state : int32 ; (* button mask *)
+    button: int32 ;
+  }
 
   (** Dom0 -> VM, TODO seems to be mouse buttons? *)
   [%%cstruct
@@ -167,6 +178,14 @@ module GUI = struct
      button : uint32_t; (* TODO *)
    } [@@little_endian]
   ]
+
+  let decode_msg_button cs : msg_button_t option =
+    Some ({ ty = get_msg_button_ty cs ;
+            x = get_msg_button_x cs ;
+            y = get_msg_button_y cs ;
+            state = get_msg_button_state cs ;
+            button = get_msg_button_button cs ;
+      })
 
   (* dom0 -> VM, mouse / cursor movement *)
   type msg_motion_t = {
@@ -241,7 +260,23 @@ module GUI = struct
         height : uint32_t;
         override_redirect : uint32_t;
       } [@@little_endian]
-  ]
+    ]
+
+  type msg_configure_t = {
+    x: int32;
+    y: int32;
+    width: int32;
+    height: int32;
+    override_redirect: int32;
+  }
+
+  let decode_msg_configure cs : msg_configure_t option =
+    Some ({ x = get_msg_configure_x cs ;
+            y = get_msg_configure_y cs ;
+            width = get_msg_configure_width cs ;
+            height = get_msg_configure_height cs ;
+            override_redirect = get_msg_configure_override_redirect cs ;
+          } : msg_configure_t)
 
   (** VM -> Dom0 *)
   [%%cstruct
@@ -412,12 +447,11 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
    *)
   (* type mfn : uint32_t;  big-endian 24-bit RGB pixel *)
 
-  let make_with_header ?(window=const_QUBES_MAIN_WINDOW) ~ty body =
+  let make_with_header ~window ~ty body =
     (** see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
     (** TODO consider using Cstruct.add_len *)
     let body_len = Cstruct.len body in
     let msg = Cstruct.create (sizeof_msg_header + body_len) in
-    let()= Cstruct.memset msg 0 in
     let()= set_msg_header_ty     msg (msg_type_to_int ty) in
     let()= set_msg_header_window msg window in
     let()= set_msg_header_untrusted_len msg Int32.(of_int body_len) in
@@ -427,25 +461,36 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
         (* length: *)      Cstruct.(len body)
     in msg
 
-  let make_msg_mfndump ~domid ~width ~height ~mfns =
+  let make_msg_mfndump ~window ~width ~height ~mfns =
+    (* n.b. must be followed by a MSG_SHMIMAGE to actually repaint *)
     let num_mfn = List.length mfns in
     let offset  = 0x0l in
     let body = Cstruct.create (sizeof_shm_cmd + num_mfn*4) in
-    set_shm_cmd_shmid   body 0l; (* TODO what *)
     set_shm_cmd_width   body width;
     set_shm_cmd_height  body height;
     set_shm_cmd_bpp     body 24l; (* bits per pixel *)
     set_shm_cmd_off     body offset;
     set_shm_cmd_num_mfn body Int32.(of_int num_mfn);
-    set_shm_cmd_domid   body Int32.(of_int domid);
+    (* From https://www.qubes-os.org/doc/gui/
+       >> "shmid" and "domid" parameters are just placeholders (to be filled
+       >> by *qubes_guid* ), so that we can use the same structure when talking
+       >> to shmoverride.so **)
+
     (* TODO let n = (4 * width * height + offset
                      + (XC_PAGE_SIZE-1)) / XC_PAGE_SIZE; *)
     mfns |> List.iteri (fun i ->
         Cstruct.LE.set_uint32 body (sizeof_shm_cmd + i*4));
-    let msg = make_with_header ~ty:MSG_MFNDUMP body in
-    msg
+    make_with_header ~window ~ty:MSG_MFNDUMP body
 
-  let make_msg_create ~width ~height ~x ~y ~override_redirect ~parent =
+  let make_msg_shmimage ~window ~x ~y ~width ~height =
+    let body = Cstruct.create (sizeof_msg_shmimage) in
+    set_msg_shmimage_x body x;
+    set_msg_shmimage_y body y;
+    set_msg_shmimage_width body width;
+    set_msg_shmimage_height body height;
+    make_with_header ~window ~ty:MSG_SHMIMAGE body
+
+  let make_msg_create ~window ~width ~height ~x ~y ~override_redirect ~parent =
     let body = Cstruct.create sizeof_msg_create in
     set_msg_create_width             body width; (*  w *)
     set_msg_create_height            body height; (* h *)
@@ -453,21 +498,21 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     set_msg_create_y                 body y;
     set_msg_create_override_redirect body override_redirect;
     set_msg_create_parent            body parent;
-    make_with_header ~ty:MSG_CREATE body
+    make_with_header ~window ~ty:MSG_CREATE body
 
-  let make_msg_map_info ~override_redirect ~transient_for =
+  let make_msg_map_info ~window ~override_redirect ~transient_for =
     let body = Cstruct.create sizeof_msg_map_info in
     let()= set_msg_map_info_override_redirect body override_redirect in
     let()= set_msg_map_info_transient_for body transient_for in
-    make_with_header ~ty:MSG_MAP body
+    make_with_header ~window ~ty:MSG_MAP body
 
-  let make_msg_wmname ~wmname =
+  let make_msg_wmname ~window ~wmname =
     let body = Cstruct.create sizeof_msg_wmname in
     let()= Cstruct.blit_from_string wmname 0 body 0
       (min String.(length wmname) sizeof_msg_wmname) ; (* length *) in
-    make_with_header ~ty:MSG_WMNAME body
+    make_with_header ~window ~ty:MSG_WMNAME body
 
-  let make_msg_window_hints ~width ~height =
+  let make_msg_window_hints ~window ~width ~height =
     let body = Cstruct.create sizeof_msg_window_hints in
     set_msg_window_hints_flags body Int32.(16 lor 32 |> of_int) ;
        (*^--  PMinSize | PMaxSize *)
@@ -475,9 +520,9 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     set_msg_window_hints_min_height body height;
     set_msg_window_hints_max_width body width;
     set_msg_window_hints_max_height body height;
-    make_with_header ~ty:MSG_WINDOW_HINTS body
+    make_with_header ~window ~ty:MSG_WINDOW_HINTS body
 
-  let make_msg_configure ~x ~y ~width ~height =
+  let make_msg_configure ~window ~x ~y ~width ~height =
     let body  = Cstruct.create sizeof_msg_configure in
     set_msg_configure_x body x ;
     set_msg_configure_y body y ; (* x and y are from qs->window_x and window_y*)
@@ -485,7 +530,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     set_msg_configure_width body width ;
     set_msg_configure_height body height ;
     set_msg_configure_override_redirect body 0l ;
-    make_with_header ~ty:MSG_CONFIGURE body
+    make_with_header ~window ~ty:MSG_CONFIGURE body
 
   module Framing = struct
     let header_size = sizeof_msg_header
@@ -536,4 +581,45 @@ module QubesDB = struct
     let header_size = sizeof_msg_header
     let body_size_from_header h = get_msg_header_data_len h |> Int32.to_int
   end
+end
+
+module Rpc_filecopy = struct
+  (* see qubes-linux-utils/qrexec-lib/libqubes-rpc-filecopy.h
+   * and qubes-core-agent-windows/src/qrexec-services/common/filecopy.h*)
+  [%%cstruct
+      type file_header = {
+        namelen    : uint32;
+        mode       : uint32;
+        filelen    : uint64;
+        atime      : uint32;
+        atime_nsec : uint32;
+        mtime      : uint32;
+        mtime_nsec : uint32;
+      } [@@little_endian]
+      (* followed by filename[namelen] and data[filelen] *)
+  ]
+
+  [%%cstruct
+      type result_header = {
+        error_code : uint32;
+        _pad       : uint32;
+        crc32      : uint64;
+      } [@@little_endian]
+  ]
+
+  [%%cstruct
+      type result_header_ext = {
+        last_namelen : uint32;
+        (* TODO char last_name[0]; variable length[last_namelen] *)
+      } [@@little_endian]
+  ]
+
+  let make_result_header_ext last_filename =
+    let namelen = Cstruct.len last_filename in
+    let msg = Cstruct.create (sizeof_result_header_ext + namelen) in
+    set_result_header_ext_last_namelen msg (Int32.of_int namelen);
+    Cstruct.blit (* src  srcoff *) last_filename 0
+                 (* dst  dstoff *) msg sizeof_result_header_ext
+                 (* len *) namelen ;
+    msg
 end

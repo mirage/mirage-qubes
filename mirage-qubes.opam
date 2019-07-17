@@ -14,7 +14,7 @@ build: [
 
 depends: [
   "dune"  {build & >= "1.0"}
-  "cstruct" { >= "1.9.0" }
+  "cstruct" { >= "2.2.0" }
   "ppx_cstruct"
   "vchan-xen"
   "xen-evtchn"
