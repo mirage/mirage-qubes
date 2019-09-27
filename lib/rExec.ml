@@ -338,7 +338,7 @@ let qrexec t ~vm ~service client =
   let request_id =
     let id = t.counter in
     t.counter <- id + 1;
-    (* a '\000' terminated string of length 32 *)
+    (* a '\000' terminated string of length 32 including '\000' *)
     Printf.sprintf "MIRAGE%025u\000" id in
   let trigger_service_params =
     let zero_pad s len =
