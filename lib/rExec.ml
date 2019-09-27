@@ -147,8 +147,8 @@ module Client_flow = struct
     | `Ok (`Data_exit_code, data) ->
       `Done (Formats.Qrexec.get_exit_status_return_code data)
     | `Ok (ty, _) ->
-      Log.debug Formats.Qrexec.(fun f -> f "unexpected message of type %ld (%s) received; \
-                                            ignoring it" (int_of_type ty) (string_of_type ty));
+      Log.err Formats.Qrexec.(fun f -> f "unexpected message of type %ld (%s) received; \
+                                          ignoring it" (int_of_type ty) (string_of_type ty));
       `Ok t
     | `Eof -> `Eof
 
