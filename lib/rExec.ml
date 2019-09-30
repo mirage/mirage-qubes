@@ -300,6 +300,7 @@ let start_connection params clients =
 ion %ld" (Vchan.Port.to_string port) version);
     match Hashtbl.find_opt clients request_id with
     | Some client ->
+      Hashtbl.remove clients request_id;
       client (`Ok (Client_flow.create remote))
     | None ->
         Log.debug (fun f -> f "request_id %S without client" request_id);
@@ -330,6 +331,8 @@ let listen t handler =
         loop ()
     | `Eof ->
         Log.info (fun f -> f "connection closed; ending listen loop");
+        (* Clean up client callbacks that will no longer be called *)
+        Hashtbl.reset t.clients;
         return `Done in
   loop () >|= fun `Done -> ()
 
@@ -354,7 +357,7 @@ let qrexec t ~vm ~service client =
   send t.t ~ty:`Trigger_service trigger_service_params >>= function
   | `Eof ->
     (* XXX: Should we handle this differently? *)
-    Lwt.async (fun () -> client `Closed);
+    Lwt.async (fun () -> client (`Error "dom0 closed connection"));
     Lwt.return `Closed
   | `Ok () ->
     Lwt.return `Ok
