@@ -17,7 +17,7 @@ module Client_flow : sig
   (* Write a formatted string to stdin *)
 
   val read : t -> [`Stdout of Cstruct.t | `Stderr of Cstruct.t
-                  | `Eof | `Done of Cstruct.uint32] Lwt.t
+                  | `Eof | `Exit_code of Cstruct.uint32] Lwt.t
   (** Read from stdout and stderr *)
 end
 

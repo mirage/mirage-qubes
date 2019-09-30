@@ -145,7 +145,7 @@ module Client_flow = struct
       t.stderr_buf <- Cstruct.append t.stderr_buf data;
       `Ok t
     | `Ok (`Data_exit_code, data) ->
-      `Done (Formats.Qrexec.get_exit_status_return_code data)
+      `Exit_code (Formats.Qrexec.get_exit_status_return_code data)
     | `Ok (ty, _) ->
       Log.err Formats.Qrexec.(fun f -> f "unexpected message of type %ld (%s) received; \
                                           ignoring it" (int_of_type ty) (string_of_type ty));
@@ -154,7 +154,7 @@ module Client_flow = struct
 
   let read t =
     let rec aux = function
-      | `Eof | `Done _ as s -> Lwt.return s
+      | `Eof | `Exit_code _ as s -> Lwt.return s
       | `Ok t ->
         let drain_stdout () =
           let output = t.stdout_buf in
