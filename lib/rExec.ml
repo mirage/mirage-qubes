@@ -279,7 +279,7 @@ let start_connection data clients =
   let domid = Formats.Qrexec.get_exec_params_connect_domain data in
   let port = Formats.Qrexec.get_exec_params_connect_port data in
   let request_id = Cstruct.to_string @@ Cstruct.shift data sizeof_exec_params in
-  Log.debug (fun f -> f "service_connect message received: domain %ld, port %ld, request_id %S" domid port request_id);
+  Log.debug (fun f -> f "service_connect message received: domain %lu, port %lu, request_id %S" domid port request_id);
   Log.debug (fun f -> f "Connecting...");
   match Vchan.Port.of_string (Int32.to_string port) with
   (* XXX: When does this ever happen? *)
@@ -362,7 +362,7 @@ let qrexec t ~vm ~service client =
 let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
-  let t = { t; clients = Hashtbl.create 42; counter = 0; } in
+  let t = { t; clients = Hashtbl.create 4; counter = 0; } in
   send_hello t.t >>= fun () ->
   recv_hello t.t >>= fun version ->
   Log.info (fun f -> f "client connected, using protocol version %ld" version);
