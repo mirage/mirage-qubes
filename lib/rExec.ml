@@ -337,6 +337,11 @@ let listen t handler =
   loop () >|= fun `Done -> ()
 
 let qrexec t ~vm ~service client =
+  let service_len = 64
+  and target_domain_len = 32 in
+  if String.length service >= service_len ||
+     String.length vm >= target_domain_len
+  then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service arguments too long");
   (* XXX: This *should* be unique. The counter could overflow, though *)
   let request_id =
     let id = t.counter in
@@ -348,8 +353,8 @@ let qrexec t ~vm ~service client =
       String.init len (fun i -> if i < String.length s then s.[i] else '\000')
     in
     let buf = Cstruct.create sizeof_trigger_service_params in
-    set_trigger_service_params_service_name (zero_pad service 64) 0 buf;
-    set_trigger_service_params_target_domain (zero_pad vm 32) 0 buf;
+    set_trigger_service_params_service_name (zero_pad service service_len) 0 buf;
+    set_trigger_service_params_target_domain (zero_pad vm target_domain_len) 0 buf;
     set_trigger_service_params_request_id request_id 0 buf;
     buf
   in
