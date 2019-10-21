@@ -320,17 +320,18 @@ let listen t handler =
           Lwt.async (fun () -> client `Permission_denied);
           loop ()
         | None ->
+          Log.warn (fun f -> f "No client for request id %S" request_id);
           loop ()
       end
     | `Ok (`Service_connect, data) ->
       Lwt.async (fun () -> start_connection data t.clients);
       loop ()
     | `Ok (ty, _) ->
-        Log.info (fun f -> f "unhandled qrexec message type received: %ld (%s)"
+        Log.info (fun f -> f "unhandled qrexec message type received: %lu (%s)"
           (int_of_type ty) (string_of_type ty));
         loop ()
     | `Eof ->
-        Log.info (fun f -> f "connection closed; ending listen loop");
+        Log.info (fun f -> f "dom0 rexec vchan connection closed; ending listen loop");
         (* Clean up client callbacks that will no longer be called *)
         Hashtbl.reset t.clients;
         return `Done in
