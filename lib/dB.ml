@@ -30,8 +30,8 @@ let update t bindings =
 
 let qubesdb_vchan_port =
   match Vchan.Port.of_string "111" with
-  | `Error msg -> failwith msg
-  | `Ok port -> port
+  | Error (`Msg msg) -> failwith msg
+  | Ok port -> port
 
 let send t ?(path="") ?(data="") ty =
   let data = Cstruct.of_string data in

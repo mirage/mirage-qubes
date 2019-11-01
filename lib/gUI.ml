@@ -16,8 +16,8 @@ let qubes_gui_protocol_version_linux = Int32.logor 0x1_0000_l 0x0001_l
 
 let gui_agent_port =
   match Vchan.Port.of_string "6000" with
-  | `Error msg -> failwith msg
-  | `Ok port -> port
+  | Error (`Msg msg) -> failwith msg
+  | Ok port -> port
 
 type event =
   | UNIT of unit (* placeholder for unimplemented events *)
