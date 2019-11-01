@@ -10,8 +10,6 @@ module QV = Msg_chan.Make(Framing)
 let src = Logs.Src.create "qubes.rexec" ~doc:"Qubes qrexec-agent"
 module Log = (val Logs.src_log src : Logs.LOG)
 
-type t = QV.t
-
 let (>>!=) = Msg_chan.(>>!=)
 
 let split chr s =
@@ -25,9 +23,6 @@ let or_fail = function
   | `Ok y -> return y
   | `Error (`Unknown msg) -> fail (Failure msg)
   | `Eof -> fail End_of_file
-
-let disconnect t =
-  QV.disconnect t
 
 let vchan_base_port =
   match Vchan.Port.of_string "512" with
@@ -122,8 +117,76 @@ module Flow = struct
         send flow.dstream ~ty:`Data_exit_code msg >>!= fun () ->
         return (`Ok ())
       )
-      (fun () -> disconnect flow.dstream)
+      (fun () -> QV.disconnect flow.dstream)
 end
+
+module Client_flow = struct
+  type t = {
+    dstream : QV.t;
+    mutable stdout_buf : Cstruct.t;
+    mutable stderr_buf : Cstruct.t;
+  }
+
+  let create dstream = { dstream; stdout_buf = Cstruct.empty;
+                         stderr_buf = Cstruct.empty }
+
+  let write t data = send ~ty:`Data_stdin t.dstream data
+
+  let writef t fmt =
+    fmt |> Printf.ksprintf @@ fun s ->
+    send ~ty:`Data_stdin t.dstream (Cstruct.of_string s)
+
+  let next_msg t =
+    recv t.dstream >|= function
+    | `Ok (`Data_stdout, data) ->
+      t.stdout_buf <- Cstruct.append t.stdout_buf data;
+      `Ok t
+    | `Ok (`Data_stderr, data) ->
+      t.stderr_buf <- Cstruct.append t.stderr_buf data;
+      `Ok t
+    | `Ok (`Data_exit_code, data) ->
+      `Exit_code (Formats.Qrexec.get_exit_status_return_code data)
+    | `Ok (ty, _) ->
+      Log.err Formats.Qrexec.(fun f -> f "unexpected message of type %ld (%s) received; \
+                                          ignoring it" (int_of_type ty) (string_of_type ty));
+      `Ok t
+    | `Eof -> `Eof
+
+  let read t =
+    let rec aux = function
+      | `Eof | `Exit_code _ as s -> Lwt.return s
+      | `Ok t ->
+        let drain_stdout () =
+          let output = t.stdout_buf in
+          t.stdout_buf <- Cstruct.empty;
+          Lwt.return (`Stdout output)
+        and drain_stderr () =
+          let output = t.stderr_buf in
+          t.stderr_buf <- Cstruct.empty;
+          Lwt.return (`Stderr output)
+        in
+        if Cstruct.len t.stdout_buf > 0
+        then drain_stdout ()
+        else if Cstruct.len t.stderr_buf > 0
+        then drain_stderr ()
+        else next_msg t >>= aux
+    in
+    aux (`Ok t)
+end
+
+type identifier = string
+(** [identifier] is used to distinguish client qrexec calls *)
+
+type client = [`Ok of Client_flow.t | `Closed | `Permission_denied | `Error of string] -> unit Lwt.t
+
+type t = {
+  t : QV.t;
+  clients : (identifier, client) Hashtbl.t;
+  mutable counter : int;
+}
+
+let disconnect t =
+  QV.disconnect t.t
 
 type handler = user:string -> string -> Flow.t -> int Lwt.t
 
@@ -207,29 +270,109 @@ let exec t ~ty ~handler msg =
       )
       (fun () ->
         let reply = Cstruct.sub msg 0 sizeof_exec_params in
-        send t ~ty:`Connection_terminated reply >|= function
+        send t.t ~ty:`Connection_terminated reply >|= function
         | `Ok () | `Eof -> ()
       )
   )
 
+let start_connection params clients =
+  let domid = Formats.Qrexec.get_exec_params_connect_domain params in
+  let port = Formats.Qrexec.get_exec_params_connect_port params in
+  let request_id = Cstruct.to_string @@ Cstruct.shift params sizeof_exec_params in
+  Log.debug (fun f -> f "service_connect message received: domain %lu, port %lu, request_id %S" domid port request_id);
+  Log.debug (fun f -> f "Connecting...");
+  match Vchan.Port.of_string (Int32.to_string port) with
+  (* XXX: When does this ever happen? *)
+  | `Error msg ->
+    begin match Hashtbl.find_opt clients request_id with
+      | Some client ->
+        Hashtbl.remove clients request_id;
+        client (`Error msg)
+      | None ->
+        Log.debug (fun f -> f "request_id %S without client" request_id);
+        Lwt.return_unit
+    end
+  | `Ok port ->
+    QV.server ~domid:(Int32.to_int domid) ~port () >>= fun remote ->
+    send_hello remote >>= fun () ->
+    recv_hello remote >>= fun version ->
+    Log.debug (fun f -> f "server connected on port %s, using protocol vers
+ion %ld" (Vchan.Port.to_string port) version);
+    match Hashtbl.find_opt clients request_id with
+    | Some client ->
+      Hashtbl.remove clients request_id;
+      client (`Ok (Client_flow.create remote))
+    | None ->
+        Log.debug (fun f -> f "request_id %S without client" request_id);
+        Lwt.return_unit
+
 let listen t handler =
   let rec loop () =
-    recv t >>= function
+    recv t.t >>= function
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
+    | `Ok (`Service_refused, data) ->
+      let request_id = Cstruct.to_string data in
+      Log.debug (fun f -> f "Service refused for %S" request_id);
+      begin match Hashtbl.find_opt t.clients request_id with
+        | Some client ->
+          Hashtbl.remove t.clients request_id;
+          Lwt.async (fun () -> client `Permission_denied);
+          loop ()
+        | None ->
+          Log.warn (fun f -> f "No client for request id %S" request_id);
+          loop ()
+      end
+    | `Ok (`Service_connect, data) ->
+      Lwt.async (fun () -> start_connection data t.clients);
+      loop ()
     | `Ok (ty, _) ->
-        Log.info (fun f -> f "unknown qrexec message type received: %ld"
-          (int_of_type ty));
+        Log.info (fun f -> f "unhandled qrexec message type received: %lu (%s)"
+          (int_of_type ty) (string_of_type ty));
         loop ()
     | `Eof ->
-        Log.info (fun f -> f "connection closed; ending listen loop");
+        Log.info (fun f -> f "dom0 rexec vchan connection closed; ending listen loop");
+        (* Clean up client callbacks that will no longer be called *)
+        Hashtbl.reset t.clients;
         return `Done in
   loop () >|= fun `Done -> ()
+
+let qrexec t ~vm ~service client =
+  let service_len = 64
+  and target_domain_len = 32 in
+  if String.length service >= service_len ||
+     String.length vm >= target_domain_len
+  then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service arguments too long");
+  (* XXX: This *should* be unique. The counter could overflow, though *)
+  let request_id =
+    let id = t.counter in
+    t.counter <- id + 1;
+    (* a '\000' terminated string of length 32 including '\000' *)
+    Printf.sprintf "MIRAGE%025u\000" id in
+  let trigger_service_params =
+    let zero_pad s len =
+      String.init len (fun i -> if i < String.length s then s.[i] else '\000')
+    in
+    let buf = Cstruct.create sizeof_trigger_service_params in
+    set_trigger_service_params_service_name (zero_pad service service_len) 0 buf;
+    set_trigger_service_params_target_domain (zero_pad vm target_domain_len) 0 buf;
+    set_trigger_service_params_request_id request_id 0 buf;
+    buf
+  in
+  Hashtbl.add t.clients request_id client;
+  send t.t ~ty:`Trigger_service trigger_service_params >>= function
+  | `Eof ->
+    (* XXX: Should we handle this differently? *)
+    Lwt.async (fun () -> client (`Error "dom0 closed connection"));
+    Lwt.return `Closed
+  | `Ok () ->
+    Lwt.return `Ok
 
 let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
-  send_hello t >>= fun () ->
-  recv_hello t >>= fun version ->
+  let t = { t; clients = Hashtbl.create 4; counter = 0; } in
+  send_hello t.t >>= fun () ->
+  recv_hello t.t >>= fun version ->
   Log.info (fun f -> f "client connected, using protocol version %ld" version);
   return t
