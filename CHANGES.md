@@ -1,3 +1,10 @@
+### v0.8.0 (2019-11-02)
+
+- adapt to mirage-protocols tcpip 4.0.0; mirage-xen vchan-xen 5.0.0 (#46 @hannesm)
+- support initiating qrexec calls (#39 @reynir @yomimono @linse, review by @cfcs, discussion in #35 #36)
+- add trigger_service_params and service_refused format string_of_type for messages (#43 @yomimono @linse)
+- GUI window support (#32 #33 #37 #41 @cfcs @reynir @yomimono)
+
 ### v0.7.0 (2019-03-06)
 
 - mirage-qubes-ipv4: compatibility with mirage-protocols 2.0.0 and mirage-net 2.0.0
