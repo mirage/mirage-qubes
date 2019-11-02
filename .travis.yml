@@ -6,7 +6,9 @@ env:
   global:
   - PINS="mirage-qubes.dev:. mirage-qubes-ipv4.dev:."
   matrix:
-  - OCAML_VERSION=4.05 PACKAGE=mirage-qubes
-  - OCAML_VERSION=4.05 PACKAGE=mirage-qubes-ipv4
   - OCAML_VERSION=4.06 PACKAGE=mirage-qubes
   - OCAML_VERSION=4.06 PACKAGE=mirage-qubes-ipv4
+  - OCAML_VERSION=4.07 PACKAGE=mirage-qubes
+  - OCAML_VERSION=4.07 PACKAGE=mirage-qubes-ipv4
+  - OCAML_VERSION=4.08 PACKAGE=mirage-qubes
+  - OCAML_VERSION=4.08 PACKAGE=mirage-qubes-ipv4

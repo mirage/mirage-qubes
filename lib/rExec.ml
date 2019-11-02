@@ -26,8 +26,8 @@ let or_fail = function
 
 let vchan_base_port =
   match Vchan.Port.of_string "512" with
-  | `Error msg -> failwith msg
-  | `Ok port -> port
+  | Error (`Msg msg) -> failwith msg
+  | Ok port -> port
 
 let max_data_chunk = 4096
 (** Max size for data chunks. See MAX_DATA_CHUNK in qubes-linux-utils/qrexec-lib/qrexec.h *)
@@ -239,8 +239,8 @@ let with_flow ~ty ~domid ~port fn =
 
 let port_of_int i =
   match Int32.to_string i |> Vchan.Port.of_string with
-  | `Ok p -> p
-  | `Error msg -> failwith msg
+  | Ok p -> p
+  | Error (`Msg msg) -> failwith msg
 
 let parse_cmdline cmd =
   let cmd = Cstruct.to_string cmd in
@@ -283,7 +283,7 @@ let start_connection params clients =
   Log.debug (fun f -> f "Connecting...");
   match Vchan.Port.of_string (Int32.to_string port) with
   (* XXX: When does this ever happen? *)
-  | `Error msg ->
+  | Error (`Msg msg) ->
     begin match Hashtbl.find_opt clients request_id with
       | Some client ->
         Hashtbl.remove clients request_id;
@@ -292,7 +292,7 @@ let start_connection params clients =
         Log.debug (fun f -> f "request_id %S without client" request_id);
         Lwt.return_unit
     end
-  | `Ok port ->
+  | Ok port ->
     QV.server ~domid:(Int32.to_int domid) ~port () >>= fun remote ->
     send_hello remote >>= fun () ->
     recv_hello remote >>= fun version ->

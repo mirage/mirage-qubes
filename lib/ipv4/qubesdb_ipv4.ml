@@ -1,11 +1,11 @@
 module Make
     (D: Qubes.S.DB)
-    (R: Mirage_random.C)
+    (R: Mirage_random.S)
     (C: Mirage_clock.MCLOCK)
-    (Ethernet : Mirage_protocols_lwt.ETHERNET)
-    (Arp : Mirage_protocols_lwt.ARP) = struct
+    (Ethernet : Mirage_protocols.ETHERNET)
+    (Arp : Mirage_protocols.ARP) = struct
   include Static_ipv4.Make(R)(C)(Ethernet)(Arp)
-  let connect db clock ethif arp =
+  let connect db ethif arp =
     let (>>=?) ip f = match ip with
       | None -> Error (`Msg "couldn't read qubesdb")
       | Some s -> f s
@@ -18,7 +18,7 @@ module Make
     match ip with
     | Ok ip ->
       let network = Ipaddr.V4.Prefix.make 32 ip in
-      connect ~ip ~network ~gateway clock ethif arp
+      connect ~ip:(network, ip) ?gateway ethif arp
     | Error (`Msg m) ->
       Lwt.fail_with ("couldn't get ip configuration from qubesdb: " ^ m)
 end
