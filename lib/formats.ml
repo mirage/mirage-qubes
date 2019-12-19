@@ -137,11 +137,7 @@ module GUI = struct
   ]
 
   (** Dom0 -> VM, dom0 wants us to reply with a MSG_CLIPBOARD_DATA *)
-  [%%cstruct
-      type msg_clipboard_req = {
-        empty : uint8_t [@len 0]
-      } [@@little_endian]
-  ]
+  let sizeof_msg_clipboard_req = 0
 
   (** Dom0 -> VM, VM -> Dom0: MSG_CLIPBOARD_DATA:
       a normal header, followed by a uint8 array of size len *)
