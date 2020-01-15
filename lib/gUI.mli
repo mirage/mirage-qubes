@@ -28,10 +28,10 @@ val pp_event : Format.formatter -> event -> unit
 val connect : domid:int -> unit -> t Lwt.t
 (** [connect domid ()] connects to the guid in the given [domid] over Vchan. *)
 
-val listen : t -> unit -> 'a Lwt.t
-(** [listen ti ()] is an event listener thread. It can be run with Lwt.async
-                   and will never return. Events are dispatched to windows
-                   created using [create_window].*)
+val listen : t -> 'a Lwt.t
+(** [listen ti] is an event listener thread. It can be run with Lwt.async
+                and will never return. Events are dispatched to windows
+                created using [create_window].*)
 
 val set_title : window -> string -> unit S.or_eof Lwt.t
 val int32_of_window : window -> int32

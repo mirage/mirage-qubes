@@ -173,7 +173,7 @@ let connect ~domid () =
   Lwt.return { qv ;
                mvar = [main_window] }
 
-let rec listen t () =
+let rec listen t =
   QV.recv t.qv >>= function
   | `Eof -> failwith "End-of-file from GUId in dom0"
   | `Ok (msg_header , msg_buf) ->
@@ -260,4 +260,4 @@ let rec listen t () =
                  Cstruct.hexdump_pp msg_buf) ;
     UNIT()
   end
-  >>= fun () -> listen t ()
+  >>= fun () -> listen t
