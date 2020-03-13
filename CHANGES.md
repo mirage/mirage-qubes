@@ -1,3 +1,8 @@
+### v0.8.1 (2020-03-13)
+
+- fix compile error with cstruct 5.1 (#48 @talex5, reported by @hannesm)
+- now using dune, no need for `pkg/pkg.ml` anymore (#50 @hannesm)
+
 ### v0.8.0 (2019-11-02)
 
 - adapt to mirage-protocols tcpip 4.0.0; mirage-xen vchan-xen 5.0.0 (#46 @hannesm)
