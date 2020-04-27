@@ -21,6 +21,7 @@ module KeyMap = Map.Make(String)
 type t = {
   vchan : QV.t;
   notify : unit Lwt_condition.t;
+  commit : string Lwt_condition.t;
   mutable store : string KeyMap.t;
 }
 
@@ -91,7 +92,9 @@ let listen t =
     | QDB_CMD_WRITE, path, value ->
         Log.info (fun f -> f "got update: %S = %S" path value);
         t.store |> KeyMap.add path value |> update t;
-        ack path >>= loop
+        ack path >>= fun () ->
+        if value = "" then Lwt_condition.broadcast t.commit path;
+        loop ()
     | QDB_RESP_OK, path, _ ->
         Log.debug (fun f -> f "OK %S" path);
         loop ()
@@ -110,7 +113,7 @@ let connect ~domid () =
   Log.info (fun f -> f "connecting to server...");
   QV.client ~domid ~port:qubesdb_vchan_port () >>= fun vchan ->
   Log.info (fun f -> f "connected");
-  let t = {vchan; store = KeyMap.empty; notify = Lwt_condition.create ()} in
+  let t = {vchan; store = KeyMap.empty; notify = Lwt_condition.create (); commit = Lwt_condition.create ()} in
   full_db_sync t >>= fun () ->
   Lwt.async (fun () -> listen t);
   Lwt.return t
@@ -133,3 +136,13 @@ let rec after t prev =
     Lwt_condition.wait t.notify >>= fun () ->
     after t prev
   ) else return current
+
+let rec got_new_commit t key =
+  Lwt_condition.wait t.commit >>= fun key' ->
+  if String.equal key key' then
+    let values =
+      KeyMap.filter (fun k _ -> starts_with k (key ^ "/")) t.store
+    in
+    return values
+  else
+    got_new_commit t key

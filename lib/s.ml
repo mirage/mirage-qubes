@@ -58,4 +58,9 @@ module type DB = sig
   val after : t -> string KeyMap.t -> string KeyMap.t Lwt.t
   (** [after prev] waits until the current bindings are different to [prev]
       and then returns the new bindings. *)
+
+  val got_new_commit : t -> string -> string KeyMap.t Lwt.t
+  (** [got_new_commit t key] waits until a new commit (empty write) has been
+      written to [key] into the qubesDB [t]. Returns the entries starting with
+      [key]. *)
 end
