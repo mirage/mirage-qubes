@@ -137,12 +137,13 @@ let rec after t prev =
     after t prev
   ) else return current
 
+let values t key =
+  KeyMap.filter (fun k _ -> starts_with k (key ^ "/")) t.store
+
 let rec got_new_commit t key =
   Lwt_condition.wait t.commit >>= fun key' ->
   if String.equal key key' then
-    let values =
-      KeyMap.filter (fun k _ -> starts_with k (key ^ "/")) t.store
-    in
+    let values = values t key in
     return values
   else
     got_new_commit t key

@@ -46,6 +46,10 @@ module type DB = sig
 
   module KeyMap : Map.S with type key = string
 
+  val values : t -> string -> string KeyMap.t
+  (** [values t key] is the database that contains all values whose prefix
+     is [key]. *)
+
   val read :  t -> string -> string option
   (** [read t key] is the last known value of [key]. *)
 
