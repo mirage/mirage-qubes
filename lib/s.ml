@@ -46,10 +46,6 @@ module type DB = sig
 
   module KeyMap : Map.S with type key = string
 
-  val values : t -> string -> string KeyMap.t
-  (** [values t key] is the database that contains all values whose prefix
-     is [key]. *)
-
   val read :  t -> string -> string option
   (** [read t key] is the last known value of [key]. *)
 
@@ -63,8 +59,9 @@ module type DB = sig
   (** [after prev] waits until the current bindings are different to [prev]
       and then returns the new bindings. *)
 
-  val got_new_commit : t -> string -> string KeyMap.t Lwt.t
-  (** [got_new_commit t key] waits until a new commit (empty write) has been
-      written to [key] into the qubesDB [t]. Returns the entries starting with
+  val got_new_commit : t -> string -> string KeyMap.t -> string KeyMap.t Lwt.t
+  (** [got_new_commit t key prev] either waits until a new commit (empty write)
+      has been written to [key] into the qubesDB [t], or the entries starting
+      with [key] are different from [prev]. Returns the entries starting with
       [key]. *)
 end
