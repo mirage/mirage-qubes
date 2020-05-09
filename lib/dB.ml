@@ -84,7 +84,7 @@ let rm t path =
       ) else true
     )
     |> update t ;
-    let path_without_slash = String.sub path 0 (len - 2) in
+    let path_without_slash = String.sub path 0 (len - 1) in
     t.committed_store <- KeyMap.remove path_without_slash t.committed_store;
   ) else (
     if not (KeyMap.mem path t.store) then
