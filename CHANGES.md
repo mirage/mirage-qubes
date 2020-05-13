@@ -1,3 +1,8 @@
+### v0.8.2 (2020-05-13)
+
+- provide Qubes.DB.got_new_commit to wait for specific commit writes in QubesDB
+  (#52 @linse @hannesm)
+
 ### v0.8.1 (2020-03-13)
 
 - fix compile error with cstruct 5.1 (#48 @talex5, reported by @hannesm)
