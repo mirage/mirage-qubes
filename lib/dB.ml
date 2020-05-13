@@ -21,7 +21,9 @@ module KeyMap = Map.Make(String)
 type t = {
   vchan : QV.t;
   notify : unit Lwt_condition.t;
+  commit : string Lwt_condition.t;
   mutable store : string KeyMap.t;
+  mutable committed_store : string KeyMap.t KeyMap.t;
 }
 
 let update t bindings =
@@ -49,6 +51,9 @@ let recv t =
   let path = String.sub path 0 (String.index path '\x00') in
   Lwt.return (ty, path, Cstruct.to_string data)
 
+let values_for_key store key =
+  KeyMap.filter (fun k _ -> starts_with k (key ^ "/")) store
+
 let full_db_sync t =
   send t.vchan QDB_CMD_MULTIREAD >>!= fun () ->
   let rec loop () =
@@ -61,6 +66,10 @@ let full_db_sync t =
     | ty, _, _ -> fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
   loop () >>= fun `Done ->
   Lwt_condition.broadcast t.notify ();  (* (probably not needed) *)
+  KeyMap.iter (fun k v ->
+    if v = "" then
+      t.committed_store <- KeyMap.add k (values_for_key t.store k) t.committed_store)
+    t.store;
   return ()
 
 let rm t path =
@@ -74,7 +83,9 @@ let rm t path =
         false
       ) else true
     )
-    |> update t
+    |> update t ;
+    let path_without_slash = String.sub path 0 (len - 1) in
+    t.committed_store <- KeyMap.remove path_without_slash t.committed_store;
   ) else (
     if not (KeyMap.mem path t.store) then
       Log.err (fun f -> f "%S not found (fatal database de-synchronization)" path);
@@ -91,7 +102,12 @@ let listen t =
     | QDB_CMD_WRITE, path, value ->
         Log.info (fun f -> f "got update: %S = %S" path value);
         t.store |> KeyMap.add path value |> update t;
-        ack path >>= loop
+        ack path >>= fun () ->
+        if value = "" then (
+          t.committed_store <- KeyMap.add path (values_for_key t.store path) t.committed_store;
+          Lwt_condition.broadcast t.commit path
+        );
+        loop ()
     | QDB_RESP_OK, path, _ ->
         Log.debug (fun f -> f "OK %S" path);
         loop ()
@@ -110,7 +126,7 @@ let connect ~domid () =
   Log.info (fun f -> f "connecting to server...");
   QV.client ~domid ~port:qubesdb_vchan_port () >>= fun vchan ->
   Log.info (fun f -> f "connected");
-  let t = {vchan; store = KeyMap.empty; notify = Lwt_condition.create ()} in
+  let t = {vchan; store = KeyMap.empty; committed_store = KeyMap.empty; notify = Lwt_condition.create (); commit = Lwt_condition.create ()} in
   full_db_sync t >>= fun () ->
   Lwt.async (fun () -> listen t);
   Lwt.return t
@@ -133,3 +149,51 @@ let rec after t prev =
     Lwt_condition.wait t.notify >>= fun () ->
     after t prev
   ) else return current
+
+let find_committed_key t key =
+  match KeyMap.find_opt key t.committed_store with
+  | None -> KeyMap.empty
+  | Some map -> map
+
+let rec got_new_commit t key prev =
+  let values = find_committed_key t key in
+  if KeyMap.equal (=) prev values then (
+    Lwt_condition.wait t.commit >>= fun key' ->
+    if String.equal key key' then
+      let values = find_committed_key t key in
+      return values
+    else
+      got_new_commit t key prev
+  ) else return values
+
+(* Three sequences of events with commit can happen
+1 - got_new_commit is called first, and waits for the commit
+client: got_new_commit "/foo" empty -> empty = t.committed_store -> wait for condition
+QubesDB: updates fuer /foo/bar
+QubesDB: updates fuer /foo/bar2
+QubesDB: commit fuer foo -> Lwt_conditioan.broadcast wakes up client
+client: returns from got_new_commit
+
+2 - got_new_commit while updates are in progress and not committed yet:
+QubesDB: updates fuer /foo/bar
+client: got_new_commit "/foo" empty => empty = t.committed_store -> wait for condition
+QubesDB: updates fuer /foo/bar2
+QubesDB: commit fuer foo -> t.committed_store <- t.store --> Lwt_condition.broadcast wakes up client
+client: return from got_new_commit
+
+3 - got_new_commit after commit:
+QubesDB: updates fuer /foo/bar
+QubesDB: updates fuer /foo/bar2
+QubesDB: commit fuer foo -> t.committed_store <- t.store
+client: got_new_commit "/foo" empty => empty <> t.committed_store
+client: return from got_new_commit
+
+4 - interleaving commits on qubesDB for different keys
+QubesDB: updates for /foo/bar
+QubesDB: updates for /bar/foo
+QubesDB: commit for foo
+client: got_new_commit "bar" empty
+QubesDB: updates for /bar/foobar
+QubesDB: commit for bar
+client: return from got_new_commit
+*)
