@@ -17,8 +17,8 @@ module Make
     in
     match ip with
     | Ok ip ->
-      let network = Ipaddr.V4.Prefix.make 32 ip in
-      connect ~ip:(network, ip) ?gateway ethif arp
+      let cidr = Ipaddr.V4.Prefix.make 32 ip in
+      connect ~cidr ?gateway ethif arp
     | Error (`Msg m) ->
       Lwt.fail_with ("couldn't get ip configuration from qubesdb: " ^ m)
 end
