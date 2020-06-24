@@ -1,3 +1,7 @@
+### v0.8.3 (2020-06-24)
+
+- adapt to tcpip 5.0.0 API changes (#53 @hannesm)
+
 ### v0.8.2 (2020-05-13)
 
 - provide Qubes.DB.got_new_commit to wait for specific commit writes in QubesDB
