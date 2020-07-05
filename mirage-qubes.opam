@@ -17,8 +17,6 @@ depends: [
   "cstruct" { >= "2.2.0" }
   "ppx_cstruct"
   "vchan-xen" { >= "5.0.0" }
-  "xen-evtchn"
-  "xen-gnt"
   "mirage-xen" { >= "5.0.0" }
   "lwt"
   "logs" { >= "0.5.0" }
