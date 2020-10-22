@@ -1,3 +1,7 @@
+### v0.9.0 (2020-10-22)
+
+- adapt to mirage-xen 6.0.0 and vchan-xen 6.0.0, only metadata changes (#55 @hannesm)
+
 ### v0.8.3 (2020-06-24)
 
 - adapt to tcpip 5.0.0 API changes (#53 @hannesm)
