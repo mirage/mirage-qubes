@@ -215,10 +215,13 @@ let with_flow ~ty ~domid ~port fn =
       Lwt.catch
         (fun () ->
           recv_hello client >>= function
-          | version when version <> 2l -> fail (error "Unsupported qrexec version %ld" version)
-          | _ ->
-          send_hello client >|= fun () ->
-          Flow.create ~ty client
+          | version when version < 2l -> fail (error "Unsupported qrexec version %ld" version)
+          | version ->
+            if version > 2l
+            then Log.debug (fun f -> f "Other end wants to use newer protocol %lu, \
+                                        continuing with version 2" version);
+            send_hello client >|= fun () ->
+            Flow.create ~ty client
         )
         (fun ex -> QV.disconnect client >>= fun () -> fail ex)
     )
