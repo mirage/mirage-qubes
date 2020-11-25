@@ -8,7 +8,7 @@ let (>>!=) x f =
   x >>= function
   | `Ok y -> f y
   | `Eof -> Lwt.fail_with "qubesdb-agent: end-of-file from QubesDB!"
-  | `Error (`Unknown msg) -> Lwt.fail (Fmt.failwith "qubesdb-agent: %s" msg)
+  | `Error (`Unknown msg) -> Fmt.failwith "qubesdb-agent: %s" msg
 
 let starts_with str prefix =
   let ls = String.length str in
@@ -72,7 +72,7 @@ let full_db_sync t =
         Log.debug (fun f -> f "%S = %S" path data);
         t.store <- t.store |> KeyMap.add path data;
         loop ()
-    | ty, _, _ -> Lwt.fail (Fmt.failwith "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
+    | ty, _, _ -> Fmt.failwith "Unexpected QubesDB message: %s" (qdb_msg_to_string ty) in
   loop () >>= fun `Done ->
   Lwt_condition.broadcast t.notify ();  (* (probably not needed) *)
   KeyMap.iter (fun k v ->

@@ -83,7 +83,7 @@ module Flow = struct
     recv flow.dstream >>!= function
     | `Data_stdin, empty when Cstruct.len empty = 0 -> Lwt.return `Eof
     | `Data_stdin, data -> Lwt.return (`Ok data)
-    | ty, _ -> Lwt.fail (Fmt.failwith "Unknown message type %ld received" (int_of_type ty))
+    | ty, _ -> Fmt.failwith "Unknown message type %ld received" (int_of_type ty)
 
   let read flow =
     if Cstruct.len flow.stdin_buf > 0 then (
@@ -200,7 +200,7 @@ let recv_hello t =
   recv t >>= function
   | `Eof -> Lwt.fail_with "End-of-file waiting for msg_hello"
   | `Ok (`Hello, resp) -> Lwt.return (get_peer_info_version resp)
-  | `Ok (ty, _) -> Lwt.fail (Fmt.failwith "Expected msg_hello, got %ld" (int_of_type ty))
+  | `Ok (ty, _) -> Fmt.failwith "Expected msg_hello, got %ld" (int_of_type ty)
 
 let try_close flow return_code =
   Flow.close flow return_code >|= function
@@ -214,7 +214,7 @@ let with_flow ~ty ~domid ~port fn =
       Lwt.catch
         (fun () ->
           recv_hello client >>= function
-          | version when version < 2l -> Lwt.fail (Fmt.failwith "Unsupported qrexec version %ld" version)
+          | version when version < 2l -> Fmt.failwith "Unsupported qrexec version %ld" version
           | version ->
             Log.info (fun f -> f "client connected, \
                                   other end wants to use protocol version %lu, \
@@ -251,7 +251,7 @@ let parse_cmdline cmd =
   else (
     let cmd = String.sub cmd 0 (String.length cmd - 1) in
     match cmd |> split ':' with
-    | None -> Lwt.fail (Fmt.failwith "Missing ':' in %S" cmd)
+    | None -> Fmt.failwith "Missing ':' in %S" cmd
     | Some (user, cmd) -> Lwt.return (user, cmd)
   )
 
@@ -376,7 +376,7 @@ let connect ~domid () =
   let t = { t; clients = Hashtbl.create 4; counter = 0; } in
   send_hello t.t >>= fun () ->
   recv_hello t.t >>= function
-  | version when version < 2l -> Lwt.fail (Fmt.failwith "Unsupported qrexec version %ld" version)
+  | version when version < 2l -> Fmt.failwith "Unsupported qrexec version %ld" version
   | version ->
     Log.info (fun f -> f "client connected, \
                           other end wants to use protocol version %lu, \
