@@ -3,7 +3,6 @@
 
 open Lwt.Infix
 open Formats.GUI
-open Utils
 
 module QV = Msg_chan.Make(Framing)
 
@@ -156,10 +155,10 @@ let connect ~domid () =
   let version = Cstruct.create sizeof_gui_protocol_version in
   set_gui_protocol_version_version version qubes_gui_protocol_version_linux;
   QV.send qv [version] >>= function
-  | `Eof -> Lwt.fail (error "End-of-file sending protocol version")
+  | `Eof -> Lwt.fail (Utils.error "End-of-file sending protocol version")
   | `Ok () ->
   QV.recv_fixed qv sizeof_xconf >>= function
-  | `Eof -> Lwt.fail (error "End-of-file getting X configuration")
+  | `Eof -> Lwt.fail (Utils.error "End-of-file getting X configuration")
   | `Ok conf ->
   let screen_w = get_xconf_w conf in
   let screen_h = get_xconf_h conf in

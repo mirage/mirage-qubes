@@ -11,6 +11,16 @@ let (>>!=) x f =
   | `Eof -> fail (Failure "qubesdb-agent: end-of-file from QubesDB!")
   | `Error (`Unknown msg) -> fail (error "qubesdb-agent: %s" msg)
 
+let starts_with str prefix =
+  let ls = String.length str in
+  let lp = String.length prefix in
+  if lp > ls then false else
+    let rec loop i =
+      if i = lp then true
+      else if str.[i] <> prefix.[i] then false
+      else loop (i + 1)
+    in loop 0
+
 module QV = Msg_chan.Make(Framing)
 
 let src = Logs.Src.create "qubes.db" ~doc:"QubesDB agent"
