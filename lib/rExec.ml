@@ -217,9 +217,9 @@ let with_flow ~ty ~domid ~port fn =
           recv_hello client >>= function
           | version when version < 2l -> fail (error "Unsupported qrexec version %ld" version)
           | version ->
-            if version > 2l
-            then Log.debug (fun f -> f "Other end wants to use newer protocol %lu, \
-                                        continuing with version 2" version);
+            Log.info (fun f -> f "client connected, \
+                                  other end wants to use protocol version %lu, \
+                                  continuing with version 2" version);
             send_hello client >|= fun () ->
             Flow.create ~ty client
         )
@@ -379,8 +379,7 @@ let connect ~domid () =
   recv_hello t.t >>= function
   | version when version < 2l -> fail (error "Unsupported qrexec version %ld" version)
   | version ->
-    if version > 2l
-    then Log.debug (fun f -> f "Other end wants to use newer protocol %lu, \
-                                continuing with version 2" version);
-    Log.info (fun f -> f "client connected, using protocol version 2");
+    Log.info (fun f -> f "client connected, \
+                          other end wants to use protocol version %lu, \
+                          continuing with version 2" version);
     return t
