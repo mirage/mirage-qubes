@@ -219,16 +219,17 @@ let recv_hello t =
   | `Ok (ty, _) -> Fmt.failwith "Expected msg_hello, got %ld" (int_of_type ty)
 
 let negotiate_version (peer_version : [ version | `Unknown_version of int32 ])
-  : version Lwt.t =
-  begin match peer_version with
+  : version =
+  let version =
+    match peer_version with
     | `Unknown_version x -> if x < int_of_version `V2
       then Fmt.failwith "Unsupported qrexec version %lu" x
-      else Lwt.return `V3
-    | #version as version -> Lwt.return version
-  end >|= fun version ->
+      else `V3
+    | #version as version -> version
+  in
   Log.debug (fun f -> f "remote end wants to use protocol version %lu, \
-               continuing with version %lu"
-               (int_of_version peer_version) (int_of_version version));
+                         continuing with version %lu"
+                (int_of_version peer_version) (int_of_version version));
   version
 
 
@@ -245,8 +246,8 @@ let with_flow ~ty ~domid ~port fn =
       Lwt.catch
         (fun () ->
           recv_hello client >>= fun peer_version ->
-          send_hello client >>= fun () ->
-          negotiate_version peer_version >|= fun version ->
+          send_hello client >|= fun () ->
+          let version = negotiate_version peer_version in
           Flow.create ~version ~ty client
         )
         (fun ex -> QV.disconnect client >>= fun () -> Lwt.fail ex)
@@ -324,7 +325,8 @@ let start_connection params clients =
   | Ok port ->
     QV.server ~domid:(Int32.to_int domid) ~port () >>= fun remote ->
     send_hello remote >>= fun () ->
-    recv_hello remote >>= negotiate_version >>= fun version ->
+    recv_hello remote >>= fun peer_version ->
+    let version = negotiate_version peer_version in
     Log.debug (fun f -> f "server connected on port %s, using protocol vers
 ion %ld" (Vchan.Port.to_string port) (int_of_version version));
     match Hashtbl.find_opt clients request_id with
@@ -413,6 +415,7 @@ let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
   send_hello t >>= fun () ->
-  recv_hello t >>= negotiate_version >>= fun version ->
+  recv_hello t >>= fun peer_version ->
+  let version = negotiate_version peer_version in
   Log.info (fun f -> f "client connected, using protocol version %ld" (int_of_version version));
   Lwt.return { t; clients = Hashtbl.create 4; counter = 0; version; }
