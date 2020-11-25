@@ -6,4 +6,4 @@
 
 See [qubes-mirage-skeleton][] for an example using this library.
 
-[qubes-mirage-skeleton]: https://github.com/talex5/qubes-mirage-skeleton
+[qubes-mirage-skeleton]: https://github.com/mirage/qubes-mirage-skeleton
