@@ -181,7 +181,7 @@ let rec listen t () =
     match List.find (fun t -> t.no = window) t.mvar with
     | w -> Lwt_mvar.put w.mvar event
     | exception _ -> Log.warn (fun m -> m "No such window %ld" window);
-                     Lwt.return ()
+                     Lwt.return_unit
   in
   let msg_len = get_msg_header_untrusted_len msg_header |> Int32.to_int in
   send_to_window
