@@ -1,8 +1,6 @@
 (** The Qubes wire protocol details. *)
 (** for more details, see qubes-gui-common/include/qubes-gui-protocol.h *)
 
-open Utils
-
 module type FRAMING = sig
   val header_size : int
   val body_size_from_header : Cstruct.t -> int
@@ -594,8 +592,7 @@ module QubesDB = struct
   let make_msg_header ~ty ~path ~data_len =
     let msg = Cstruct.create sizeof_msg_header in
     set_msg_header_ty msg (qdb_msg_to_int ty);
-    set_fixed_string (get_msg_header_path msg) path;
-    Cstruct.memset (get_msg_header_padding msg) 0;
+    Cstruct.blit_from_string path 0 (get_msg_header_path msg) 0 (String.length path);
     set_msg_header_data_len msg (Int32.of_int data_len);
     msg
 

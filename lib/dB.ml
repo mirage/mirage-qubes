@@ -1,15 +1,24 @@
 (* Copyright (C) 2015, Thomas Leonard
    See the README file for details. *)
 
-open Utils
 open Lwt.Infix
 open Formats.QubesDB
 
 let (>>!=) x f =
   x >>= function
   | `Ok y -> f y
-  | `Eof -> fail (Failure "qubesdb-agent: end-of-file from QubesDB!")
-  | `Error (`Unknown msg) -> fail (error "qubesdb-agent: %s" msg)
+  | `Eof -> Lwt.fail_with "qubesdb-agent: end-of-file from QubesDB!"
+  | `Error (`Unknown msg) -> Fmt.failwith "qubesdb-agent: %s" msg
+
+let starts_with str prefix =
+  let ls = String.length str in
+  let lp = String.length prefix in
+  if lp > ls then false else
+    let rec loop i =
+      if i = lp then true
+      else if str.[i] <> prefix.[i] then false
+      else loop (i + 1)
+    in loop 0
 
 module QV = Msg_chan.Make(Framing)
 
@@ -45,7 +54,7 @@ let recv t =
   let ty =
     let ty = get_msg_header_ty hdr in
     match int_to_qdb_msg ty with
-    | None -> raise (error "Invalid message type %d" ty)
+    | None -> Fmt.failwith "Invalid message type %d" ty
     | Some ty -> ty in
   let path = Cstruct.to_string (get_msg_header_path hdr) in
   let path = String.sub path 0 (String.index path '\x00') in
@@ -58,19 +67,19 @@ let full_db_sync t =
   send t.vchan QDB_CMD_MULTIREAD >>!= fun () ->
   let rec loop () =
     recv t.vchan >>= function
-    | QDB_RESP_MULTIREAD, "", _ -> return `Done
+    | QDB_RESP_MULTIREAD, "", _ -> Lwt.return `Done
     | QDB_RESP_MULTIREAD, path, data ->
         Log.debug (fun f -> f "%S = %S" path data);
         t.store <- t.store |> KeyMap.add path data;
         loop ()
-    | ty, _, _ -> fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
+    | ty, _, _ -> Fmt.failwith "Unexpected QubesDB message: %s" (qdb_msg_to_string ty) in
   loop () >>= fun `Done ->
   Lwt_condition.broadcast t.notify ();  (* (probably not needed) *)
   KeyMap.iter (fun k v ->
     if v = "" then
       t.committed_store <- KeyMap.add k (values_for_key t.store k) t.committed_store)
     t.store;
-  return ()
+  Lwt.return_unit
 
 let rm t path =
   let len = String.length path in
@@ -96,7 +105,7 @@ let listen t =
   let rec loop () =
     let ack path =
       send t.vchan ~path QDB_RESP_OK >|= function
-      | `Eof -> raise (error "End-of-file sending OK")
+      | `Eof -> failwith "End-of-file sending OK"
       | `Ok () -> () in
     recv t.vchan >>= function
     | QDB_CMD_WRITE, path, value ->
@@ -119,7 +128,7 @@ let listen t =
         Log.err (fun f -> f "Error from peer (for %S)" path);
         loop ()
     | ty, _, _ ->
-        fail (error "Unexpected QubesDB message: %s" (qdb_msg_to_string ty)) in
+        Fmt.failwith "Unexpected QubesDB message: %s" (qdb_msg_to_string ty) in
   loop () >|= fun `Done -> ()
 
 let connect ~domid () =
@@ -139,7 +148,7 @@ let read t key =
 
 let write t key value =
   send t.vchan QDB_CMD_WRITE ~path:key ~data:value >>!= fun () ->
-  return ()
+  Lwt.return_unit
 
 let bindings t = t.store
 
@@ -148,7 +157,7 @@ let rec after t prev =
   if KeyMap.equal (=) prev current then (
     Lwt_condition.wait t.notify >>= fun () ->
     after t prev
-  ) else return current
+  ) else Lwt.return current
 
 let find_committed_key t key =
   match KeyMap.find_opt key t.committed_store with
@@ -161,10 +170,10 @@ let rec got_new_commit t key prev =
     Lwt_condition.wait t.commit >>= fun key' ->
     if String.equal key key' then
       let values = find_committed_key t key in
-      return values
+      Lwt.return values
     else
       got_new_commit t key prev
-  ) else return values
+  ) else Lwt.return values
 
 (* Three sequences of events with commit can happen
 1 - got_new_commit is called first, and waits for the commit

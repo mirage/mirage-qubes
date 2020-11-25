@@ -3,7 +3,6 @@
 
 open Lwt.Infix
 open Formats.Qrexec
-open Utils
 
 module QV = Msg_chan.Make(Framing)
 
@@ -20,9 +19,9 @@ let split chr s =
     None
 
 let or_fail = function
-  | `Ok y -> return y
-  | `Error (`Unknown msg) -> fail (Failure msg)
-  | `Eof -> fail End_of_file
+  | `Ok y -> Lwt.return y
+  | `Error (`Unknown msg) -> Lwt.fail_with msg
+  | `Eof -> Lwt.fail End_of_file
 
 let vchan_base_port =
   match Vchan.Port.of_string "512" with
@@ -40,14 +39,14 @@ let rec send t ~ty data =
   if Cstruct.len data' = 0
   then QV.send t [hdr; data]
   else QV.send t [hdr; data] >>= function
-    | `Eof -> return `Eof
+    | `Eof -> Lwt.return `Eof
     | `Ok () ->
       send t ~ty data'
 
 let recv t =
   QV.recv t >>!= fun (hdr, data) ->
   let ty = get_msg_header_ty hdr |> type_of_int in
-  return (`Ok (ty, data))
+  Lwt.return (`Ok (ty, data))
 
 module Flow = struct
   type t = {
@@ -60,12 +59,12 @@ module Flow = struct
 
   let push ~stream flow buf =
     match flow.ty with
-    | `Just_exec -> return ()
+    | `Just_exec -> Lwt.return_unit
     | `Exec_cmdline ->
     if Cstruct.len buf > 0 then
       send flow.dstream ~ty:stream buf >>= or_fail
     else
-      return ()
+      Lwt.return_unit
 
   let pushf ~stream flow fmt =
     fmt |> Printf.ksprintf @@ fun s ->
@@ -79,18 +78,18 @@ module Flow = struct
 
   let read_raw flow =
     match flow.ty with
-    | `Just_exec -> return `Eof
+    | `Just_exec -> Lwt.return `Eof
     | `Exec_cmdline ->
     recv flow.dstream >>!= function
-    | `Data_stdin, empty when Cstruct.len empty = 0 -> return `Eof
-    | `Data_stdin, data -> return (`Ok data)
-    | ty, _ -> fail (error "Unknown message type %ld received" (int_of_type ty))
+    | `Data_stdin, empty when Cstruct.len empty = 0 -> Lwt.return `Eof
+    | `Data_stdin, data -> Lwt.return (`Ok data)
+    | ty, _ -> Fmt.failwith "Unknown message type %ld received" (int_of_type ty)
 
   let read flow =
     if Cstruct.len flow.stdin_buf > 0 then (
       let retval = flow.stdin_buf in
       flow.stdin_buf <- Cstruct.create 0;
-      return (`Ok retval)
+      Lwt.return (`Ok retval)
     ) else read_raw flow
 
   let rec read_line flow =
@@ -102,7 +101,7 @@ module Flow = struct
     | Some i ->
         let retval = String.sub buf 0 i in
         flow.stdin_buf <- Cstruct.shift flow.stdin_buf (i + 1);
-        return (`Ok retval)
+        Lwt.return (`Ok retval)
     | None ->
         read_raw flow >>!= fun buf ->
         flow.stdin_buf <- Cstruct.append flow.stdin_buf buf;
@@ -115,7 +114,7 @@ module Flow = struct
       (fun () ->
         send flow.dstream ~ty:`Data_stdout (Cstruct.create 0) >>!= fun () ->
         send flow.dstream ~ty:`Data_exit_code msg >>!= fun () ->
-        return (`Ok ())
+        Lwt.return (`Ok ())
       )
       (fun () -> QV.disconnect flow.dstream)
 end
@@ -194,14 +193,14 @@ let send_hello t =
   let hello = Cstruct.create sizeof_peer_info in
   set_peer_info_version hello 2l;
   send t ~ty:`Hello hello >>= function
-  | `Eof -> fail (error "End-of-file sending msg_hello")
-  | `Ok () -> return ()
+  | `Eof -> Lwt.fail_with "End-of-file sending msg_hello"
+  | `Ok () -> Lwt.return_unit
 
 let recv_hello t =
   recv t >>= function
-  | `Eof -> fail (error "End-of-file waiting for msg_hello")
-  | `Ok (`Hello, resp) -> return (get_peer_info_version resp)
-  | `Ok (ty, _) -> fail (error "Expected msg_hello, got %ld" (int_of_type ty))
+  | `Eof -> Lwt.fail_with "End-of-file waiting for msg_hello"
+  | `Ok (`Hello, resp) -> Lwt.return (get_peer_info_version resp)
+  | `Ok (ty, _) -> Fmt.failwith "Expected msg_hello, got %ld" (int_of_type ty)
 
 let try_close flow return_code =
   Flow.close flow return_code >|= function
@@ -215,7 +214,7 @@ let with_flow ~ty ~domid ~port fn =
       Lwt.catch
         (fun () ->
           recv_hello client >>= function
-          | version when version < 2l -> fail (error "Unsupported qrexec version %ld" version)
+          | version when version < 2l -> Fmt.failwith "Unsupported qrexec version %ld" version
           | version ->
             Log.info (fun f -> f "client connected, \
                                   other end wants to use protocol version %lu, \
@@ -223,7 +222,7 @@ let with_flow ~ty ~domid ~port fn =
             send_hello client >|= fun () ->
             Flow.create ~ty client
         )
-        (fun ex -> QV.disconnect client >>= fun () -> fail ex)
+        (fun ex -> QV.disconnect client >>= fun () -> Lwt.fail ex)
     )
     (fun flow ->
       Lwt.try_bind
@@ -237,7 +236,7 @@ let with_flow ~ty ~domid ~port fn =
     (fun ex ->
       Log.warn (fun f -> f "Error setting up vchan (domain %d, port %s): %s"
         domid (Vchan.Port.to_string port) (Printexc.to_string ex));
-      return ()
+      Lwt.return_unit
     )
 
 let port_of_int i =
@@ -248,12 +247,12 @@ let port_of_int i =
 let parse_cmdline cmd =
   let cmd = Cstruct.to_string cmd in
   if cmd.[String.length cmd - 1] <> '\x00' then
-    fail (error "Command not null-terminated")
+    Lwt.fail_with "Command not null-terminated"
   else (
     let cmd = String.sub cmd 0 (String.length cmd - 1) in
     match cmd |> split ':' with
-    | None -> fail (error "Missing ':' in %S" cmd)
-    | Some (user, cmd) -> return (user, cmd)
+    | None -> Fmt.failwith "Missing ':' in %S" cmd
+    | Some (user, cmd) -> Lwt.return (user, cmd)
   )
 
 let exec t ~ty ~handler msg =
@@ -268,7 +267,7 @@ let exec t ~ty ~handler msg =
           parse_cmdline cmdline >>= fun (user, cmd) ->
           handler ~user cmd flow >>= fun return_code ->
           Log.debug (fun f -> f "%S returned exit status %d" cmd return_code);
-          return return_code
+          Lwt.return return_code
         )
       )
       (fun () ->
@@ -337,7 +336,7 @@ let listen t handler =
         Log.info (fun f -> f "dom0 rexec vchan connection closed; ending listen loop");
         (* Clean up client callbacks that will no longer be called *)
         Hashtbl.reset t.clients;
-        return `Done in
+        Lwt.return `Done in
   loop () >|= fun `Done -> ()
 
 let qrexec t ~vm ~service client =
@@ -377,9 +376,9 @@ let connect ~domid () =
   let t = { t; clients = Hashtbl.create 4; counter = 0; } in
   send_hello t.t >>= fun () ->
   recv_hello t.t >>= function
-  | version when version < 2l -> fail (error "Unsupported qrexec version %ld" version)
+  | version when version < 2l -> Fmt.failwith "Unsupported qrexec version %ld" version
   | version ->
     Log.info (fun f -> f "client connected, \
                           other end wants to use protocol version %lu, \
                           continuing with version 2" version);
-    return t
+    Lwt.return t
