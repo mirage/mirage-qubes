@@ -376,6 +376,11 @@ let connect ~domid () =
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
   let t = { t; clients = Hashtbl.create 4; counter = 0; } in
   send_hello t.t >>= fun () ->
-  recv_hello t.t >>= fun version ->
-  Log.info (fun f -> f "client connected, using protocol version %ld" version);
-  return t
+  recv_hello t.t >>= function
+  | version when version < 2l -> fail (error "Unsupported qrexec version %ld" version)
+  | version ->
+    if version > 2l
+    then Log.debug (fun f -> f "Other end wants to use newer protocol %lu, \
+                                continuing with version 2" version);
+    Log.info (fun f -> f "client connected, using protocol version 2");
+    return t
