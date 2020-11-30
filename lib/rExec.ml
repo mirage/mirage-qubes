@@ -333,7 +333,7 @@ let listen t handler =
       Lwt.async (fun () -> start_connection data t.clients);
       loop ()
     | `Ok (ty, _) ->
-        Log.info (fun f -> f "unhandled qrexec message type received: %lu (%s)"
+        Log.warn (fun f -> f "unhandled qrexec message type received: %lu (%s)"
           (int_of_type ty) (string_of_type ty));
         loop ()
     | `Eof ->
