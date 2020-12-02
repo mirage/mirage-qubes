@@ -1,3 +1,9 @@
+### v0.9.1 (2020-12-02)
+
+- RExec: being future compatible, and negotiate protocol version 2 (#56 #57 @reynir)
+- Remove Utils module (#58 @hannesm)
+- RExec: close connection with peer on unknown messages, instead of raising an exception (#61 @reynir)
+
 ### v0.9.0 (2020-10-22)
 
 - adapt to mirage-xen 6.0.0 and vchan-xen 6.0.0, only metadata changes (#55 @hannesm)
