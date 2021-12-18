@@ -2,10 +2,10 @@ module Make
     (D : Qubes.S.DB)
     (R : Mirage_random.S)
     (C : Mirage_clock.MCLOCK)
-    (Ethernet : Mirage_protocols.ETHERNET)
-    (Arp : Mirage_protocols.ARP) : sig
+    (Ethernet : Ethernet.S)
+    (Arp : Arp.S) : sig
 
-  include Mirage_protocols.IPV4
+  include Tcpip.Ip.S with type ipaddr = Ipaddr.V4.t
   val connect : D.t -> Ethernet.t -> Arp.t -> t Lwt.t
   (** [connect db ethernet arp] attempts to use the provided [db]
    *  to look up the correct IPV4 information, and construct

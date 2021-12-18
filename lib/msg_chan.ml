@@ -24,7 +24,7 @@ module Make (F : Formats.FRAMING) = struct
   }
 
   let rec read_exactly t size =
-    let avail = Cstruct.len t.buffer in
+    let avail = Cstruct.length t.buffer in
     if avail >= size then (
       let retval = Cstruct.sub t.buffer 0 size in
       t.buffer <- Cstruct.shift t.buffer size;
@@ -50,7 +50,7 @@ module Make (F : Formats.FRAMING) = struct
 
   let recv_raw t : Cstruct.t S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.read_lock @@ fun () ->
-    if Cstruct.len t.buffer > 0 then (
+    if Cstruct.length t.buffer > 0 then (
       let data = t.buffer in
       t.buffer <- Cstruct.create 0;
       return (`Ok data)

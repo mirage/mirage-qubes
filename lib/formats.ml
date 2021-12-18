@@ -469,7 +469,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
   let make_with_header ~window ~ty body =
     (** see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
     (** TODO consider using Cstruct.add_len *)
-    let body_len = Cstruct.len body in
+    let body_len = Cstruct.length body in
     let msg = Cstruct.create (sizeof_msg_header + body_len) in
     let()= set_msg_header_ty     msg (msg_type_to_int ty) in
     let()= set_msg_header_window msg window in
@@ -477,7 +477,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     let() = Cstruct.blit
         (* src, srcoff: *) body 0
         (* dst, dstoff: *) msg sizeof_msg_header
-        (* length: *)      Cstruct.(len body)
+        (* length: *)      Cstruct.(length body)
     in msg
 
   let make_msg_mfndump ~window ~width ~height ~mfns =
@@ -633,7 +633,7 @@ module Rpc_filecopy = struct
   ]
 
   let make_result_header_ext last_filename =
-    let namelen = Cstruct.len last_filename in
+    let namelen = Cstruct.length last_filename in
     let msg = Cstruct.create (sizeof_result_header_ext + namelen) in
     set_result_header_ext_last_namelen msg (Int32.of_int namelen);
     Cstruct.blit (* src  srcoff *) last_filename 0

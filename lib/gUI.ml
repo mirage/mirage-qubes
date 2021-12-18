@@ -83,7 +83,7 @@ let decode_CLIPBOARD_DATA buf =
   let len = get_msg_clipboard_data_len buf |> Int32.to_int in
   match
     Int32.compare (get_msg_clipboard_data_len buf) 0l = -1
-    || Cstruct.len buf + sizeof_msg_clipboard_data <> len with
+    || Cstruct.length buf + sizeof_msg_clipboard_data <> len with
   | true ->
     Logs.warn (fun m -> m "Got invalid CLIPBOARD_DATA msg from dom0");
     UNIT ()
