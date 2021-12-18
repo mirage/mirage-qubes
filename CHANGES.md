@@ -1,3 +1,8 @@
+### v0.9.2 (2021-12-18)
+
+- avoid deprecated Cstruct.len, use Cstruct.length instead (#64 @hannesm)
+- adapt to tcpip 7.0.0 changes (#64 @hannesm)
+
 ### v0.9.1 (2020-12-02)
 
 - RExec: being future compatible, and negotiate protocol version 2 (#56 #57 @reynir)
