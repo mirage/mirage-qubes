@@ -2,8 +2,8 @@ module Make
     (D: Qubes.S.DB)
     (R: Mirage_random.S)
     (C: Mirage_clock.MCLOCK)
-    (Ethernet : Mirage_protocols.ETHERNET)
-    (Arp : Mirage_protocols.ARP) = struct
+    (Ethernet : Ethernet.S)
+    (Arp : Arp.S) = struct
   include Static_ipv4.Make(R)(C)(Ethernet)(Arp)
   let connect db ethif arp =
     let (>>=?) ip f = match ip with
