@@ -1,3 +1,14 @@
+### v0.9.2 (2021-12-18)
+
+- avoid deprecated Cstruct.len, use Cstruct.length instead (#64 @hannesm)
+- adapt to tcpip 7.0.0 changes (#64 @hannesm)
+
+### v0.9.1 (2020-12-02)
+
+- RExec: being future compatible, and negotiate protocol version 2 (#56 #57 @reynir)
+- Remove Utils module (#58 @hannesm)
+- RExec: close connection with peer on unknown messages, instead of raising an exception (#61 @reynir)
+
 ### v0.9.0 (2020-10-22)
 
 - adapt to mirage-xen 6.0.0 and vchan-xen 6.0.0, only metadata changes (#55 @hannesm)

@@ -93,7 +93,10 @@ module Flow = struct
     recv flow.dstream >>!= function
     | `Data_stdin, empty when Cstruct.length empty = 0 -> Lwt.return `Eof
     | `Data_stdin, data -> Lwt.return (`Ok data)
-    | ty, _ -> Fmt.failwith "Unknown message type %ld received" (int_of_type ty)
+    | ty, _ ->
+      Log.err (fun f -> f "Unknown message type %ld received" (int_of_type ty));
+      QV.disconnect flow.dstream >>= fun () ->
+      Lwt.return `Eof
 
   let read flow =
     if Cstruct.length flow.stdin_buf > 0 then (
@@ -148,20 +151,21 @@ module Client_flow = struct
     send ~version:t.version ~ty:`Data_stdin t.dstream (Cstruct.of_string s)
 
   let next_msg t =
-    recv t.dstream >|= function
+    recv t.dstream >>= function
     | `Ok (`Data_stdout, data) ->
       t.stdout_buf <- Cstruct.append t.stdout_buf data;
-      `Ok t
+      Lwt.return (`Ok t)
     | `Ok (`Data_stderr, data) ->
       t.stderr_buf <- Cstruct.append t.stderr_buf data;
-      `Ok t
+      Lwt.return (`Ok t)
     | `Ok (`Data_exit_code, data) ->
-      `Exit_code (Formats.Qrexec.get_exit_status_return_code data)
+      Lwt.return (`Exit_code (Formats.Qrexec.get_exit_status_return_code data))
     | `Ok (ty, _) ->
       Log.err Formats.Qrexec.(fun f -> f "unexpected message of type %ld (%s) received; \
-                                          ignoring it" (int_of_type ty) (string_of_type ty));
-      `Ok t
-    | `Eof -> `Eof
+                                          closing connection" (int_of_type ty) (string_of_type ty));
+      QV.disconnect t.dstream >>= fun () ->
+      Lwt.return `Eof
+    | `Eof -> Lwt.return `Eof
 
   let read t =
     let rec aux = function
@@ -358,7 +362,7 @@ let listen t handler =
       Lwt.async (fun () -> start_connection data t.clients);
       loop ()
     | `Ok (ty, _) ->
-        Log.info (fun f -> f "unhandled qrexec message type received: %lu (%s)"
+        Log.warn (fun f -> f "unhandled qrexec message type received: %lu (%s)"
           (int_of_type ty) (string_of_type ty));
         loop ()
     | `Eof ->

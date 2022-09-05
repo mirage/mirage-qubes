@@ -30,7 +30,6 @@ module Qrexec = struct
 
   [%%cstruct
       type exit_status = {
-        (* XXX: size of message depends on native int size?? *)
         return_code : uint32_t;
       } [@@little_endian]
   ]
