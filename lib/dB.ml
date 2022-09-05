@@ -46,7 +46,7 @@ let qubesdb_vchan_port =
 
 let send t ?(path="") ?(data="") ty =
   let data = Cstruct.of_string data in
-  let hdr = make_msg_header ~ty ~path ~data_len:(Cstruct.len data) in
+  let hdr = make_msg_header ~ty ~path ~data_len:(Cstruct.length data) in
   QV.send t [hdr; data]
 
 let recv t =

@@ -40,11 +40,11 @@ let max_data_chunk : Formats.Qrexec.version -> int = function
   | `V3 -> max_data_chunk_v3
 
 let rec send t ~version ~ty data =
-  let data, data' = Cstruct.split data (min (max_data_chunk version) (Cstruct.len data)) in
+  let data, data' = Cstruct.split data (min (max_data_chunk version) (Cstruct.length data)) in
   let hdr = Cstruct.create sizeof_msg_header in
   set_msg_header_ty hdr (int_of_type ty);
-  set_msg_header_len hdr (Cstruct.len data |> Int32.of_int);
-  if Cstruct.len data' = 0
+  set_msg_header_len hdr (Cstruct.length data |> Int32.of_int);
+  if Cstruct.length data' = 0
   then QV.send t [hdr; data]
   else QV.send t [hdr; data] >>= function
     | `Eof -> Lwt.return `Eof
@@ -71,7 +71,7 @@ module Flow = struct
     match flow.ty with
     | `Just_exec -> Lwt.return_unit
     | `Exec_cmdline ->
-    if Cstruct.len buf > 0 then
+    if Cstruct.length buf > 0 then
       send flow.dstream ~version:flow.version ~ty:stream buf >>= or_fail
     else
       Lwt.return_unit
@@ -91,12 +91,12 @@ module Flow = struct
     | `Just_exec -> Lwt.return `Eof
     | `Exec_cmdline ->
     recv flow.dstream >>!= function
-    | `Data_stdin, empty when Cstruct.len empty = 0 -> Lwt.return `Eof
+    | `Data_stdin, empty when Cstruct.length empty = 0 -> Lwt.return `Eof
     | `Data_stdin, data -> Lwt.return (`Ok data)
     | ty, _ -> Fmt.failwith "Unknown message type %ld received" (int_of_type ty)
 
   let read flow =
-    if Cstruct.len flow.stdin_buf > 0 then (
+    if Cstruct.length flow.stdin_buf > 0 then (
       let retval = flow.stdin_buf in
       flow.stdin_buf <- Cstruct.create 0;
       Lwt.return (`Ok retval)
@@ -176,9 +176,9 @@ module Client_flow = struct
           t.stderr_buf <- Cstruct.empty;
           Lwt.return (`Stderr output)
         in
-        if Cstruct.len t.stdout_buf > 0
+        if Cstruct.length t.stdout_buf > 0
         then drain_stdout ()
-        else if Cstruct.len t.stderr_buf > 0
+        else if Cstruct.length t.stderr_buf > 0
         then drain_stderr ()
         else next_msg t >>= aux
     in
