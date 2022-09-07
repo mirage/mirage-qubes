@@ -1,3 +1,7 @@
+### v0.9.3 (2022-09-07)
+
+- implement Qrexec protocol version 3 (#60 @reynir @palainp, fixes #38)
+
 ### v0.9.2 (2021-12-18)
 
 - avoid deprecated Cstruct.len, use Cstruct.length instead (#64 @hannesm)
