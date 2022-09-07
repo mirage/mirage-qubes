@@ -42,6 +42,14 @@ module Qrexec = struct
     } [@@little_endian]
   ]
 
+  [%%cstruct
+    type trigger_service_params3 = {
+      target_domain : uint8_t [@len 64];
+      request_id : uint8_t [@len 32];
+      (* rest of message is service name *)
+    } [@@little_endian]
+  ]
+
   type msg_type =
     [ `Exec_cmdline
     | `Just_exec
@@ -49,6 +57,7 @@ module Qrexec = struct
     | `Service_refused
     | `Trigger_service
     | `Connection_terminated
+    | `Trigger_service3
     | `Hello
     | `Data_stdin
     | `Data_stdout
@@ -66,6 +75,7 @@ module Qrexec = struct
     | 0x203l -> `Service_refused
     | 0x210l -> `Trigger_service
     | 0x211l -> `Connection_terminated
+    | 0x212l -> `Trigger_service3
     | 0x300l -> `Hello
     | x -> `Unknown x
 
@@ -80,6 +90,7 @@ module Qrexec = struct
     | `Service_refused -> 0x203l
     | `Trigger_service -> 0x210l
     | `Connection_terminated -> 0x211l
+    | `Trigger_service3 -> 0x212l
     | `Hello -> 0x300l
     | `Unknown x -> x
 
@@ -94,8 +105,23 @@ module Qrexec = struct
     | `Service_refused -> "MSG_SERVICE_REFUSED"
     | `Trigger_service -> "MSG_TRIGGER_SERVICE"
     | `Connection_terminated -> "MSG_CONNECTION_TERMINATED"
+    | `Trigger_service3 -> "MSG_TRIGGER_SERVICE3"
     | `Hello -> "MSG_HELLO"
     | `Unknown x -> "Unknown message: " ^ (Int32.to_string x)
+
+  type version =
+    [ `V2
+    | `V3 ]
+
+  let version_of_int = function
+    | 2l -> `V2
+    | 3l -> `V3
+    | x -> `Unknown_version x
+
+  let int_of_version = function
+    | `V2 -> 2l
+    | `V3 -> 3l
+    | `Unknown_version x -> x
 
 
   module Framing = struct
