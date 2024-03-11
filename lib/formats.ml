@@ -3,53 +3,69 @@
 
 module type FRAMING = sig
   val header_size : int
-  val body_size_from_header : Cstruct.t -> int
+  val body_size_from_header : Bytes.t -> int
 end
 
 module Qrexec = struct
-  [%%cstruct
       type msg_header = {
-        ty : uint32_t;
-        len : uint32_t;
-      } [@@little_endian]
-  ]
+        ty : int32;
+        len : int32;
+      }
+      let get_msg_header_ty h = Bytes.get_int32_le h 0
+      let set_msg_header_ty h v = Bytes.set_int32_le h 0 v
+      let get_msg_header_len h = Bytes.get_int32_le h 4
+      let set_msg_header_len h v = Bytes.set_int32_le h 4 v
+      let sizeof_msg_header = 8
 
-  [%%cstruct
       type peer_info = {
-        version : uint32_t;
-      } [@@little_endian]
-  ]
+        version : int32;
+      }
+      let get_peer_info_version h = Bytes.get_int32_le h 4
+      let set_peer_info_version h v = Bytes.set_int32_le h 4 v
+      let sizeof_peer_info = 4
 
-  [%%cstruct
       type exec_params = {
-        connect_domain : uint32_t;
-        connect_port : uint32_t;
+        connect_domain : int32;
+        connect_port : int32;
         (* rest of message is command line *)
-      } [@@little_endian]
-  ]
+      }
+      let get_exec_params_connect_domain h = Bytes.get_int32_le h 0
+      let set_exec_params_connect_domain h v = Bytes.set_int32_le h 0 v
+      let get_exec_params_connect_port h = Bytes.get_int32_le h 4
+      let set_exec_params_connect_port h v = Bytes.set_int32_le h 4 v
+      let sizeof_exec_params = 8
 
-  [%%cstruct
       type exit_status = {
-        return_code : uint32_t;
-      } [@@little_endian]
-  ]
+        return_code : int32;
+      }
+      let get_exit_status_return_code h = Bytes.get_int32_le h 0
+      let set_exit_status_return_code h v = Bytes.set_int32_le h 0 v
+      let sizeof_exit_status = 4
 
-  [%%cstruct
-    type trigger_service_params = {
-      service_name : uint8_t [@len 64];
-      target_domain : uint8_t [@len 32];
-      request_id : uint8_t [@len 32]
-    } [@@little_endian]
-  ]
+      type trigger_service_params = {
+        service_name : Bytes.t; (* [@len 64]; *)
+        target_domain : Bytes.t; (* [@len 32]; *)
+        request_id : Bytes.t; (* [@len 32] *)
+      }
+      let get_trigger_service_params_service_name h = Bytes.sub h 0 64
+      let set_trigger_service_params_service_name v ofs h = Bytes.blit_string v 0 h ofs 64
+      let get_trigger_service_params_target_domain h = Bytes.sub h 64 32
+      let set_trigger_service_params_target_domain v ofs h = Bytes.blit_string v 0 h ofs 32
+      let get_trigger_service_params_request_id h = Bytes.sub h 96 32
+      let set_trigger_service_params_request_id v ofs h = Bytes.blit_string v 0 h ofs 32
+      let sizeof_trigger_service_params = 64+32+32
 
-  [%%cstruct
-    type trigger_service_params3 = {
-      target_domain : uint8_t [@len 64];
-      request_id : uint8_t [@len 32];
-      (* rest of message is service name *)
-    } [@@little_endian]
-  ]
-
+      type trigger_service_params3 = {
+        target_domain : Bytes.t; (* [@len 64]; *)
+        request_id : Bytes.t; (* [@len 32] *)
+        (* rest of message is service name *)
+      }
+      let get_trigger_service_params3_target_domain h = Bytes.sub h 0 64
+      let set_trigger_service_params3_target_domain v ofs h = Bytes.blit_string v 0 h ofs 64
+      let get_trigger_service_params3_request_id h = Bytes.sub h 64 32
+      let set_trigger_service_params3_request_id v ofs h = Bytes.blit_string v 0 h ofs 32
+      let sizeof_trigger_service_params3 = 64+32
+    
   type msg_type =
     [ `Exec_cmdline
     | `Just_exec
@@ -143,13 +159,18 @@ module GUI = struct
   ]
 
   (** struct msg_hdr *)
-  [%%cstruct
       type msg_header = {
-        ty : uint32_t; (** type *)
-        window : uint32_t;
-        untrusted_len : uint32_t;
-      } [@@little_endian]
-  ]
+        ty : int32; (** type *)
+        window : int32;
+        untrusted_len : int32;
+      }
+      let get_msg_header_ty h = Bytes.get_int32_le h 0
+      let set_msg_header_ty h v = Bytes.set_int32_le h 0 v
+      let get_msg_header_window h = Bytes.get_int32_le h 4
+      let set_msg_header_window h v = Bytes.set_int32_le h 4 v
+      let get_msg_header_untrusted_len h = Bytes.get_int32_le h 8
+      let set_msg_header_untrusted_len h v = Bytes.set_int32_le h 8 v
+      let sizeof_msg_header = 12
 
   (** VM -> Dom0, Dom0 -> VM *)
   [%%cstruct
@@ -495,15 +516,15 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
   let make_with_header ~window ~ty body =
     (** see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
     (** TODO consider using Cstruct.add_len *)
-    let body_len = Cstruct.length body in
-    let msg = Cstruct.create (sizeof_msg_header + body_len) in
+    let body_len = Bytes.length body in
+    let msg = Bytes.create (sizeof_msg_header + body_len) in
     let()= set_msg_header_ty     msg (msg_type_to_int ty) in
     let()= set_msg_header_window msg window in
     let()= set_msg_header_untrusted_len msg Int32.(of_int body_len) in
-    let() = Cstruct.blit
+    let() = Bytes.blit
         (* src, srcoff: *) body 0
         (* dst, dstoff: *) msg sizeof_msg_header
-        (* length: *)      Cstruct.(length body)
+        (* length: *)      Bytes.(length body)
     in msg
 
   let make_msg_mfndump ~window ~width ~height ~mfns =
@@ -524,11 +545,11 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     (* TODO let n = (4 * width * height + offset
                      + (XC_PAGE_SIZE-1)) / XC_PAGE_SIZE; *)
     mfns |> List.iteri (fun i ->
-        Cstruct.LE.set_uint32 body (sizeof_shm_cmd + i*4));
+        Bytes.set_int32_le body (sizeof_shm_cmd + i*4));
     make_with_header ~window ~ty:MSG_MFNDUMP body
 
   let make_msg_shmimage ~window ~x ~y ~width ~height =
-    let body = Cstruct.create (sizeof_msg_shmimage) in
+    let body = Bytes.create (sizeof_msg_shmimage) in
     set_msg_shmimage_x body x;
     set_msg_shmimage_y body y;
     set_msg_shmimage_width body width;
@@ -536,7 +557,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     make_with_header ~window ~ty:MSG_SHMIMAGE body
 
   let make_msg_create ~window ~width ~height ~x ~y ~override_redirect ~parent =
-    let body = Cstruct.create sizeof_msg_create in
+    let body = Bytes.create sizeof_msg_create in
     set_msg_create_width             body width; (*  w *)
     set_msg_create_height            body height; (* h *)
     set_msg_create_x                 body x;
@@ -546,19 +567,19 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     make_with_header ~window ~ty:MSG_CREATE body
 
   let make_msg_map_info ~window ~override_redirect ~transient_for =
-    let body = Cstruct.create sizeof_msg_map_info in
+    let body = Bytes.create sizeof_msg_map_info in
     let()= set_msg_map_info_override_redirect body override_redirect in
     let()= set_msg_map_info_transient_for body transient_for in
     make_with_header ~window ~ty:MSG_MAP body
 
   let make_msg_wmname ~window ~wmname =
-    let body = Cstruct.create sizeof_msg_wmname in
-    let()= Cstruct.blit_from_string wmname 0 body 0
+    let body = Bytes.create sizeof_msg_wmname in
+    let()= Bytes.blit_from_string wmname 0 body 0
       (min String.(length wmname) sizeof_msg_wmname) ; (* length *) in
     make_with_header ~window ~ty:MSG_WMNAME body
 
   let make_msg_window_hints ~window ~width ~height =
-    let body = Cstruct.create sizeof_msg_window_hints in
+    let body = Bytes.create sizeof_msg_window_hints in
     set_msg_window_hints_flags body Int32.(16 lor 32 |> of_int) ;
        (*^--  PMinSize | PMaxSize *)
     set_msg_window_hints_min_width body width;
@@ -568,7 +589,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     make_with_header ~window ~ty:MSG_WINDOW_HINTS body
 
   let make_msg_configure ~window ~x ~y ~width ~height =
-    let body  = Cstruct.create sizeof_msg_configure in
+    let body  = Bytes.create sizeof_msg_configure in
     set_msg_configure_x body x ;
     set_msg_configure_y body y ; (* x and y are from qs->window_x and window_y*)
 

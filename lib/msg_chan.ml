@@ -18,20 +18,20 @@ module Make (F : Formats.FRAMING) = struct
   type t = {
     domid : int;
     vchan : Vchan_xen.flow;
-    mutable buffer : Cstruct.t;
+    mutable buffer : Bytes.t;
     read_lock : Lwt_mutex.t;
     write_lock : Lwt_mutex.t;
   }
 
   let rec read_exactly t size =
-    let avail = Cstruct.length t.buffer in
+    let avail = Bytes.length t.buffer in
     if avail >= size then (
-      let retval = Cstruct.sub t.buffer 0 size in
-      t.buffer <- Cstruct.shift t.buffer size;
+      let retval = Bytes.sub t.buffer 0 size in
+      Bytes.blit t.buffer size t.buffer 0 (avail-size);
       return (`Ok retval)
     ) else (
       Vchan_xen.read t.vchan >|= unwrap_read >>!= fun buf ->
-      t.buffer <- Cstruct.append t.buffer buf;
+      t.buffer <- Bytes.cat t.buffer (Cstruct.to_bytes buf);
       read_exactly t size
     )
 
@@ -48,20 +48,22 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok body)
     )
 
-  let recv_raw t : Cstruct.t S.or_eof Lwt.t =
+  let recv_raw t : Bytes.t S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.read_lock @@ fun () ->
-    if Cstruct.length t.buffer > 0 then (
+    if Bytes.length t.buffer > 0 then (
       let data = t.buffer in
-      t.buffer <- Cstruct.create 0;
+      t.buffer <- Bytes.empty;
       return (`Ok data)
     ) else (
       Vchan_xen.read t.vchan >|= unwrap_read >>!= fun result ->
-      return (`Ok result)
+      let data = Cstruct.to_bytes result in
+      return (`Ok data)
     )
 
-  let send t (buffers : Cstruct.t list) : unit S.or_eof Lwt.t =
+  let send t (buffers : Bytes.t list) : unit S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.write_lock (fun () ->
-      Vchan_xen.writev t.vchan buffers >>= function
+      let c = Bytes.concat Bytes.empty buffers in
+      Vchan_xen.writev t.vchan [Cstruct.of_bytes c] >>= function
       | Error `Closed -> return `Eof
       | Error e -> fail (Failure (Format.asprintf "%a" Vchan_xen.pp_write_error e))
       | Ok _ -> return @@ `Ok ()
@@ -71,7 +73,7 @@ module Make (F : Formats.FRAMING) = struct
     Vchan_xen.server ~domid ~port () >|= fun vchan -> {
       vchan;
       domid;
-      buffer = Cstruct.create 0;
+      buffer = Bytes.empty;
       read_lock = Lwt_mutex.create ();
       write_lock = Lwt_mutex.create ();
     }
@@ -80,7 +82,7 @@ module Make (F : Formats.FRAMING) = struct
     Vchan_xen.client ~domid ~port () >|= fun vchan -> {
       vchan;
       domid;
-      buffer = Cstruct.create 0;
+      buffer = Bytes.empty;
       read_lock = Lwt_mutex.create ();
       write_lock = Lwt_mutex.create ();
     }

@@ -40,16 +40,20 @@ let max_data_chunk : Formats.Qrexec.version -> int = function
   | `V3 -> max_data_chunk_v3
 
 let rec send t ~version ~ty data =
-  let data, data' = Cstruct.split data (min (max_data_chunk version) (Cstruct.length data)) in
-  let hdr = Cstruct.create sizeof_msg_header in
+  let ldata = Bytes.length data in
+  let lmin = min (max_data_chunk version) ldata in
+  let hdr = Bytes.create sizeof_msg_header in
   set_msg_header_ty hdr (int_of_type ty);
-  set_msg_header_len hdr (Cstruct.length data |> Int32.of_int);
-  if Cstruct.length data' = 0
+  set_msg_header_len hdr (ldata |> Int32.of_int);
+  if ldata = lmin
   then QV.send t [hdr; data]
-  else QV.send t [hdr; data] >>= function
-    | `Eof -> Lwt.return `Eof
-    | `Ok () ->
-      send t ~version ~ty data'
+  else
+    let data' = Bytes.sub data lmin (ldata-lmin) in
+    let data = Bytes.sub data 0 lmin in
+    QV.send t [hdr; data] >>= function
+      | `Eof -> Lwt.return `Eof
+      | `Ok () ->
+        send t ~version ~ty data'
 
 let recv t =
   QV.recv t >>!= fun (hdr, data) ->
@@ -59,26 +63,26 @@ let recv t =
 module Flow = struct
   type t = {
     dstream : QV.t;
-    mutable stdin_buf : Cstruct.t;
+    mutable stdin_buf : Bytes.t;
     ty : [`Just_exec | `Exec_cmdline];
     version : Formats.Qrexec.version;
   }
 
   let create ~version ~ty dstream =
-    {dstream; stdin_buf = Cstruct.create 0; ty; version}
+    {dstream; stdin_buf = Bytes.empty; ty; version}
 
   let push ~stream flow buf =
     match flow.ty with
     | `Just_exec -> Lwt.return_unit
     | `Exec_cmdline ->
-    if Cstruct.length buf > 0 then
+    if Bytes.length buf > 0 then
       send flow.dstream ~version:flow.version ~ty:stream buf >>= or_fail
     else
       Lwt.return_unit
 
   let pushf ~stream flow fmt =
     fmt |> Printf.ksprintf @@ fun s ->
-      push ~stream flow (Cstruct.of_string (s ^ "\n"))
+      push ~stream flow (Bytes.of_string (s ^ "\n"))
 
   let write = push ~stream:`Data_stdout
   let ewrite = push ~stream:`Data_stderr
@@ -91,7 +95,7 @@ module Flow = struct
     | `Just_exec -> Lwt.return `Eof
     | `Exec_cmdline ->
     recv flow.dstream >>!= function
-    | `Data_stdin, empty when Cstruct.length empty = 0 -> Lwt.return `Eof
+    | `Data_stdin, empty when Bytes.length empty = 0 -> Lwt.return `Eof
     | `Data_stdin, data -> Lwt.return (`Ok data)
     | ty, _ ->
       Log.err (fun f -> f "Unknown message type %ld received" (int_of_type ty));
@@ -99,33 +103,33 @@ module Flow = struct
       Lwt.return `Eof
 
   let read flow =
-    if Cstruct.length flow.stdin_buf > 0 then (
+    if Bytes.length flow.stdin_buf > 0 then (
       let retval = flow.stdin_buf in
-      flow.stdin_buf <- Cstruct.create 0;
+      flow.stdin_buf <- Bytes.empty;
       Lwt.return (`Ok retval)
     ) else read_raw flow
 
   let rec read_line flow =
-    let buf = Cstruct.to_string flow.stdin_buf in
+    let buf = Bytes.to_string flow.stdin_buf in
     let i =
       try Some (String.index buf '\n')
       with Not_found -> None in
     match i with
     | Some i ->
         let retval = String.sub buf 0 i in
-        flow.stdin_buf <- Cstruct.shift flow.stdin_buf (i + 1);
+        Bytes.blit flow.stdin_buf 0 flow.stdin_buf (i + 1) i;
         Lwt.return (`Ok retval)
     | None ->
         read_raw flow >>!= fun buf ->
-        flow.stdin_buf <- Cstruct.append flow.stdin_buf buf;
+        flow.stdin_buf <- Bytes.cat flow.stdin_buf buf;
         read_line flow
 
   let close flow return_code =
-    let msg = Cstruct.create sizeof_exit_status in
+    let msg = Bytes.create sizeof_exit_status in
     set_exit_status_return_code msg (Int32.of_int return_code);
     Lwt.finalize
       (fun () ->
-        send flow.dstream ~version:flow.version ~ty:`Data_stdout (Cstruct.create 0) >>!= fun () ->
+        send flow.dstream ~version:flow.version ~ty:`Data_stdout (Bytes.empty) >>!= fun () ->
         send flow.dstream ~version:flow.version ~ty:`Data_exit_code msg >>!= fun () ->
         Lwt.return (`Ok ())
       )
@@ -135,28 +139,28 @@ end
 module Client_flow = struct
   type t = {
     dstream : QV.t;
-    mutable stdout_buf : Cstruct.t;
-    mutable stderr_buf : Cstruct.t;
+    mutable stdout_buf : Bytes.t;
+    mutable stderr_buf : Bytes.t;
     version : Formats.Qrexec.version;
   }
 
   let create ~version dstream =
-    { dstream; stdout_buf = Cstruct.empty;
-      stderr_buf = Cstruct.empty; version }
+    { dstream; stdout_buf = Bytes.empty;
+      stderr_buf = Bytes.empty; version }
 
   let write t data = send ~version:t.version ~ty:`Data_stdin t.dstream data
 
   let writef t fmt =
     fmt |> Printf.ksprintf @@ fun s ->
-    send ~version:t.version ~ty:`Data_stdin t.dstream (Cstruct.of_string s)
+    send ~version:t.version ~ty:`Data_stdin t.dstream (Bytes.of_string s)
 
   let next_msg t =
     recv t.dstream >>= function
     | `Ok (`Data_stdout, data) ->
-      t.stdout_buf <- Cstruct.append t.stdout_buf data;
+      t.stdout_buf <- Bytes.cat t.stdout_buf data;
       Lwt.return (`Ok t)
     | `Ok (`Data_stderr, data) ->
-      t.stderr_buf <- Cstruct.append t.stderr_buf data;
+      t.stderr_buf <- Bytes.cat t.stderr_buf data;
       Lwt.return (`Ok t)
     | `Ok (`Data_exit_code, data) ->
       Lwt.return (`Exit_code (Formats.Qrexec.get_exit_status_return_code data))
@@ -173,16 +177,16 @@ module Client_flow = struct
       | `Ok t ->
         let drain_stdout () =
           let output = t.stdout_buf in
-          t.stdout_buf <- Cstruct.empty;
+          t.stdout_buf <- Bytes.empty;
           Lwt.return (`Stdout output)
         and drain_stderr () =
           let output = t.stderr_buf in
-          t.stderr_buf <- Cstruct.empty;
+          t.stderr_buf <- Bytes.empty;
           Lwt.return (`Stderr output)
         in
-        if Cstruct.length t.stdout_buf > 0
+        if Bytes.length t.stdout_buf > 0
         then drain_stdout ()
-        else if Cstruct.length t.stderr_buf > 0
+        else if Bytes.length t.stderr_buf > 0
         then drain_stderr ()
         else next_msg t >>= aux
     in
@@ -208,7 +212,7 @@ type handler = user:string -> string -> Flow.t -> int Lwt.t
 
 let send_hello t =
   let version = `V3 in
-  let hello = Cstruct.create sizeof_peer_info in
+  let hello = Bytes.create sizeof_peer_info in
   set_peer_info_version hello (int_of_version version);
   send t ~version ~ty:`Hello hello >>= function
   | `Eof -> Fmt.failwith "End-of-file sending msg_hello"
@@ -277,7 +281,7 @@ let port_of_int i =
   | Error (`Msg msg) -> failwith msg
 
 let parse_cmdline cmd =
-  let cmd = Cstruct.to_string cmd in
+  let cmd = Bytes.to_string cmd in
   if cmd.[String.length cmd - 1] <> '\x00' then
     Lwt.fail_with "Command not null-terminated"
   else (
@@ -291,8 +295,8 @@ let exec t ~ty ~handler msg =
   Lwt.async (fun () ->
     let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
-    let cmdline = Cstruct.shift msg sizeof_exec_params in
-    Log.debug (fun f -> f "Execute %S" (Cstruct.to_string cmdline));
+    let cmdline = Bytes.sub msg sizeof_exec_params (Bytes.length msg) in
+    Log.debug (fun f -> f "Execute %S" (Bytes.to_string cmdline));
     Lwt.finalize
       (fun () ->
         with_flow ~ty ~domid ~port (fun flow ->
@@ -303,7 +307,7 @@ let exec t ~ty ~handler msg =
         )
       )
       (fun () ->
-        let reply = Cstruct.sub msg 0 sizeof_exec_params in
+        let reply = Bytes.sub msg 0 sizeof_exec_params in
         send t.t ~version:t.version ~ty:`Connection_terminated reply >|= function
         | `Ok () | `Eof -> ()
       )
@@ -312,7 +316,7 @@ let exec t ~ty ~handler msg =
 let start_connection params clients =
   let domid = Formats.Qrexec.get_exec_params_connect_domain params in
   let port = Formats.Qrexec.get_exec_params_connect_port params in
-  let request_id = Cstruct.to_string @@ Cstruct.shift params sizeof_exec_params in
+  let request_id = Bytes.to_string @@ Bytes.sub params sizeof_exec_params (Bytes.length params) in
   Log.debug (fun f -> f "service_connect message received: domain %lu, port %lu, request_id %S" domid port request_id);
   Log.debug (fun f -> f "Connecting...");
   match Vchan.Port.of_string (Int32.to_string port) with
@@ -347,7 +351,7 @@ let listen t handler =
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
     | `Ok (`Service_refused, data) ->
-      let request_id = Cstruct.to_string data in
+      let request_id = Bytes.to_string data in
       Log.debug (fun f -> f "Service refused for %S" request_id);
       begin match Hashtbl.find_opt t.clients request_id with
         | Some client ->
@@ -383,18 +387,17 @@ let service_params ~version ~service ~vm ~request_id =
     if String.length service >= service_len ||
        String.length vm >= target_domain_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service arguments too long");
-    let buf = Cstruct.create sizeof_trigger_service_params in
+    let buf = Bytes.create sizeof_trigger_service_params in
     set_trigger_service_params_service_name (zero_pad service service_len) 0 buf;
     set_trigger_service_params_target_domain (zero_pad vm target_domain_len) 0 buf;
     set_trigger_service_params_request_id request_id 0 buf;
     `Trigger_service, buf
   | `V3 ->
     let target_domain_len = 64 in
-    let buf = Cstruct.create (sizeof_trigger_service_params3 + String.length request_id) in
+    let buf = Bytes.create (sizeof_trigger_service_params3 + String.length request_id) in
     set_trigger_service_params3_target_domain (zero_pad vm target_domain_len) 0 buf;
     set_trigger_service_params3_request_id request_id 0 buf;
-    Cstruct.blit_from_string request_id 0 buf sizeof_trigger_service_params3
-      (String.length request_id);
+    Bytes.blit (Bytes.of_string request_id) 0 buf sizeof_trigger_service_params3 (String.length request_id);
     `Trigger_service3, buf
 
 let qrexec t ~vm ~service client =
