@@ -24,7 +24,7 @@ type event =
   | Focus of msg_focus_t
   | Motion of msg_motion_t
   | Clipboard_request
-  | Clipboard_data of Cstruct.t
+  | Clipboard_data of Bytes.t
   | Configure of Formats.GUI.msg_configure_t
   | Window_crossing of msg_crossing_t
   | Window_destroy
@@ -37,7 +37,7 @@ let pp_event fmt event =
   | UNIT () -> pf() "UNIT"
   | Button _ -> pf() "Button"
   | Clipboard_request -> pf() "Clipboard_request"
-  | Clipboard_data cs -> pf() "Clipboard_data: %S" (Cstruct.to_string cs)
+  | Clipboard_data b -> pf() "Clipboard_data: %S" (Bytes.to_string b)
   | Configure x -> pf() "Configure: @[x=%ld;@ y=%ld;@ width=%ld;@ height=%ld@]"
                      x.x x.y x.width x.height
   | Focus {mode;detail} -> pf() "Focus mode: %ld detail: %ld" mode detail
@@ -74,22 +74,24 @@ let decode_FOCUS buf =
   } in
   Focus focus
 
-let decode_MSG_CLOSE buf =
-  Log.warn (fun f -> f "Event: CLOSE: %a" Cstruct.hexdump_pp buf) ;
+let decode_MSG_CLOSE _buf =
+  Log.warn (fun f -> f "Event: CLOSE: ") ;
+(* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
   Window_close
 
 let decode_CLIPBOARD_DATA buf =
-  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" Cstruct.hexdump_pp buf);
+  Log.warn (fun f -> f "Event: CLIPBOARD_DATA:");
+(* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
   let len = get_msg_clipboard_data_len buf |> Int32.to_int in
   match
     Int32.compare (get_msg_clipboard_data_len buf) 0l = -1
-    || Cstruct.length buf + sizeof_msg_clipboard_data <> len with
+    || Bytes.length buf + sizeof_msg_clipboard_data <> len with
   | true ->
     Logs.warn (fun m -> m "Got invalid CLIPBOARD_DATA msg from dom0");
     UNIT ()
   | false ->
     (* TODO expose the window id of the recipient window *)
-    Clipboard_data (Cstruct.sub buf sizeof_msg_clipboard_data len)
+    Clipboard_data (Bytes.sub buf sizeof_msg_clipboard_data len)
 
 let int32_of_window (w : window) : int32 = w.no
 
@@ -100,7 +102,8 @@ let decode_MSG_MOTION buf =
                  m.x m.y m.state m.is_hint);
     Motion m
   | None ->
-    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" Cstruct.hexdump_pp buf);
+    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: ");
+        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
     UNIT ()
 
 let decode_CONFIGURE buf =
@@ -152,7 +155,7 @@ let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:gui_agent_port () >>= fun qv ->
   (* qubesgui_init_connection *)
-  let version = Cstruct.create sizeof_gui_protocol_version in
+  let version = Bytes.create sizeof_gui_protocol_version in
   set_gui_protocol_version_version version qubes_gui_protocol_version_linux;
   QV.send qv [version] >>= function
   | `Eof -> Lwt.fail_with "End-of-file sending protocol version"
@@ -196,14 +199,15 @@ let rec listen t () =
          | MSG_CLOSE as msg)
     when (match msg_type_size msg with Some x -> x <> msg_len | None -> true) ->
     Log.warn (fun f -> f "BUG: expected_size [%d] <> msg_len [%d] for fixed-\
-                          size msg! msg_header: %a@ Received raw buffer:: %a"
+                          size msg! msg_header: @ Received raw buffer:: "
                  (match msg_type_size msg with Some x -> x | None -> -1)
-                 msg_len
-                 Cstruct.hexdump_pp msg_header
-                 Cstruct.hexdump_pp msg_buf) ;
+                 msg_len) ;
+    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_header ;*)
+    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
     UNIT()
   | Some MSG_MAP ->
-    Log.warn (fun f -> f "Event: MAP: %a" Cstruct.hexdump_pp msg_buf) ;
+    Log.warn (fun f -> f "Event: MAP: ");
+    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
     UNIT()
   | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> decode_FOCUS msg_buf
@@ -213,28 +217,30 @@ let rec listen t () =
     Clipboard_request
   | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
       | Some event -> Window_crossing event
-      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a"
-                             Cstruct.hexdump_pp msg_buf)
+      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding ")
+             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
               ; UNIT ()
       end
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
       | Some button_event -> Button button_event
-      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a"
-                             Cstruct.hexdump_pp msg_buf)
+      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding ")
+             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
         ; UNIT ()
       end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
-    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %S"
-      Cstruct.(to_string msg_buf)) ;
+    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: ");
+             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
     UNIT()
   | Some MSG_WINDOW_FLAGS ->
-    Log.warn (fun f -> f "Event: WINDOW_FLAGS: %S" Cstruct.(to_string msg_buf))
-      ; UNIT ()
+    Log.warn (fun f -> f "Event: WINDOW_FLAGS: ")
+      ;
+             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+      UNIT ()
   | Some MSG_CONFIGURE ->
-    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a"
-                 Cstruct.hexdump_pp msg_buf) ;
+    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): ");
+             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
     (* TODO here we should ACK to Qubes that we accept the new dimensions,
             atm this is the responsibility of the user: *)
     decode_CONFIGURE msg_buf
@@ -251,12 +257,13 @@ let rec listen t () =
     (* Handle messages that are appvm->dom0 and thus dom0 is not supposed
        to send to the VM: *)
     Log.warn (fun f ->
-        f "UNEXPECTED message received. Data: %a"
-          Cstruct.hexdump_pp msg_buf); UNIT()
+        f "UNEXPECTED message received. Data:");
+        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+        UNIT()
   | None ->
-    Log.warn (fun f -> f "Unexpected data with unknown type: [%a] %aa"
-                 Cstruct.hexdump_pp msg_header
-                 Cstruct.hexdump_pp msg_buf) ;
+    Log.warn (fun f -> f "Unexpected data with unknown type: [] a") ;
+        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_header ;*)
+        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
     UNIT()
   end
   >>= fun () -> listen t ()

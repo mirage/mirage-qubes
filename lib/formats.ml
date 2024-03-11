@@ -152,11 +152,13 @@ module GUI = struct
 
   let const_QUBES_MAIN_WINDOW = 1l
 
-  [%%cstruct
       type gui_protocol_version = {
-        version : uint32_t;
-      } [@@little_endian]
-  ]
+        version : int32;
+      }
+      let get_gui_protocol_version_version h = Bytes.get_int32_le h 0
+      let set_gui_protocol_version_version h v = Bytes.set_int32_le h 0 v
+      let sizeof_gui_protocol_version = 4
+ 
 
   (** struct msg_hdr *)
       type msg_header = {
@@ -188,13 +190,16 @@ module GUI = struct
 
   (** Dom0 -> VM, VM -> Dom0: MSG_CLIPBOARD_DATA:
       a normal header, followed by a uint8 array of size len *)
-  [%%cstruct
     type msg_clipboard_data = {
-      window_id : uint32_t [@big_endian];
-      len : uint32_t;
+      window_id : int32; (* [@big_endian]; *)
+      len : int32;
       (* followed by a uint8 array of size len *)
-    } [@@little_endian]
-  ]
+    }
+      let get_msg_clipboard_data_window_id h = Bytes.get_int32_be h 0
+      let set_msg_clipboard_data_window_id h v = Bytes.set_int32_be h 0 v
+      let get_msg_clipboard_data_len h = Bytes.get_int32_le h 4
+      let set_msg_clipboard_data_len h v = Bytes.set_int32_le h 4 v
+      let sizeof_msg_clipboard_data = 8
 
   (** VM -> Dom0 *)
       type msg_create = {
@@ -230,15 +235,25 @@ module GUI = struct
 
   (** Dom0 -> VM *)
   (* https://github.com/drinkcat/chroagh/commit/1d38c2e2422f97b6bf55580c9efc027ecf9f2721 *)
-  [%%cstruct
       type msg_keypress = {
-        ty    : uint32_t;
-        x     : uint32_t;
-        y     : uint32_t;
-        state : uint32_t; (** 1:down, 0:up *)
-        keycode : uint32_t;
-      } [@@little_endian]
-  ]
+        ty    : int32;
+        x     : int32;
+        y     : int32;
+        state : int32; (** 1:down, 0:up *)
+        keycode : int32;
+      }
+      let get_msg_keypress_ty h = Bytes.get_int32_le h 0
+      let set_msg_keypress_ty h v = Bytes.set_int32_le h 0 v
+      let get_msg_keypress_x h = Bytes.get_int32_le h 4
+      let set_msg_keypress_x h v = Bytes.set_int32_le h 4 v
+      let get_msg_keypress_y h = Bytes.get_int32_le h 8
+      let set_msg_keypress_y h v = Bytes.set_int32_le h 8 v
+      let get_msg_keypress_state h = Bytes.get_int32_le h 12
+      let set_msg_keypress_state h v = Bytes.set_int32_le h 12 v
+      let get_msg_keypress_keycode h = Bytes.get_int32_le h 16
+      let set_msg_keypress_keycode h v = Bytes.set_int32_le h 16 v
+      let sizeof_msg_keypress = 20
+
 
   type msg_button_t = {
    ty : int32 ; (* TODO make bool? ButtonPress / ButtonRelease*)
@@ -249,22 +264,31 @@ module GUI = struct
   }
 
   (** Dom0 -> VM, TODO seems to be mouse buttons? *)
-  [%%cstruct
    type msg_button = {
-     ty : uint32_t;
-     x : uint32_t;
-     y : uint32_t;
-     state : uint32_t;
-     button : uint32_t; (* TODO *)
-   } [@@little_endian]
-  ]
+     ty : int32;
+     x : int32;
+     y : int32;
+     state : int32;
+     button : int32; (* TODO *)
+   }
+   let get_msg_button_ty h = Bytes.get_int32_le h 0
+   let set_msg_button_ty h v = Bytes.set_int32_le h 0 v
+   let get_msg_button_x h = Bytes.get_int32_le h 4
+   let set_msg_button_x h v = Bytes.set_int32_le h 4 v
+   let get_msg_button_y h = Bytes.get_int32_le h 8
+   let set_msg_button_y h v = Bytes.set_int32_le h 8 v
+   let get_msg_button_state h = Bytes.get_int32_le h 12
+   let set_msg_button_state h v = Bytes.set_int32_le h 12 v
+   let get_msg_button_button h = Bytes.get_int32_le h 16
+   let set_msg_button_button h v = Bytes.set_int32_le h 16 v
+   let sizeof_msg_button = 20
 
-  let decode_msg_button cs : msg_button_t option =
-    Some ({ ty = get_msg_button_ty cs ;
-            x = get_msg_button_x cs ;
-            y = get_msg_button_y cs ;
-            state = get_msg_button_state cs ;
-            button = get_msg_button_button cs ;
+  let decode_msg_button b: msg_button_t option =
+    Some ({ ty = get_msg_button_ty b ;
+            x = get_msg_button_x b ;
+            y = get_msg_button_y b ;
+            state = get_msg_button_state b ;
+            button = get_msg_button_button b ;
       })
 
   (* dom0 -> VM, mouse / cursor movement *)
@@ -276,14 +300,21 @@ module GUI = struct
   }
 
   (** Dom0 -> VM, mouse / cursor motion event *)
-  [%%cstruct
       type msg_motion = {
-        x       : uint32_t;
-        y       : uint32_t;
-        state   : uint32_t;
-        is_hint : uint32_t;
-      } [@@little_endian]
-  ]
+        x       : int32;
+        y       : int32;
+        state   : int32;
+        is_hint : int32;
+      }
+      let get_msg_motion_x h = Bytes.get_int32_le h 0
+      let set_msg_motion_x h v = Bytes.set_int32_le h 0 v
+      let get_msg_motion_y h = Bytes.get_int32_le h 4
+      let set_msg_motion_y h v = Bytes.set_int32_le h 4 v
+      let get_msg_motion_state h = Bytes.get_int32_le h 8
+      let set_msg_motion_state h v = Bytes.set_int32_le h 8 v
+      let get_msg_motion_is_hint h = Bytes.get_int32_le h 12
+      let set_msg_motion_is_hint h v = Bytes.set_int32_le h 12 v
+      let sizeof_msg_motion = 16
 
   let decode_msg_motion cs : msg_motion_t option = (*TODO catch exceptions *)
   let i32 = fun f -> (f cs |> Int32.to_int) in
@@ -306,17 +337,30 @@ module GUI = struct
   }
 
   (** Dom0 -> VM, seems to fire when the mouse is moved over a window border *)
-  [%%cstruct
    type msg_crossing = {
-     ty : uint32_t;
-     x  : uint32_t;
-     y  : uint32_t;
-     state  : uint32_t;
-     mode   : uint32_t;
-     detail : uint32_t;
-     focus  : uint32_t;
-   } [@@little_endian]
-  ]
+     ty : int32;
+     x  : int32;
+     y  : int32;
+     state  : int32;
+     mode   : int32;
+     detail : int32;
+     focus  : int32;
+   }
+   let get_msg_crossing_ty h = Bytes.get_int32_le h 0
+   let set_msg_crossing_ty h v = Bytes.set_int32_le h 0 v
+   let get_msg_crossing_x h = Bytes.get_int32_le h 4
+   let set_msg_crossing_x h v = Bytes.set_int32_le h 4 v
+   let get_msg_crossing_y h = Bytes.get_int32_le h 8
+   let set_msg_crossing_y h v = Bytes.set_int32_le h 8 v
+   let get_msg_crossing_state h = Bytes.get_int32_le h 12
+   let set_msg_crossing_state h v = Bytes.set_int32_le h 12 v
+   let get_msg_crossing_mode h = Bytes.get_int32_le h 16
+   let set_msg_crossing_mode h v = Bytes.set_int32_le h 16 v
+   let get_msg_crossing_detail h = Bytes.get_int32_le h 20
+   let set_msg_crossing_detail h v = Bytes.set_int32_le h 20 v
+   let get_msg_crossing_focus h = Bytes.get_int32_le h 24
+   let set_msg_crossing_focus h v = Bytes.set_int32_le h 24 v
+   let sizeof_msg_crossing = 28
 
   let decode_msg_crossing cs  : msg_crossing_t option =
      (*TODO catch exceptions *)
@@ -391,13 +435,18 @@ module GUI = struct
   }
 
   (** Dom0 -> VM *)
-  [%%cstruct
       type msg_focus = {
-        ty     : uint32_t;
-        mode   : uint32_t;
-        detail : uint32_t;
-      } [@@little_endian]
-  ]
+        ty     : int32;
+        mode   : int32;
+        detail : int32;
+      }
+      let get_msg_focus_ty h = Bytes.get_int32_le h 0
+      let set_msg_focus_ty h v = Bytes.set_int32_le h 0 v
+      let get_msg_focus_mode h = Bytes.get_int32_le h 4
+      let set_msg_focus_mode h v = Bytes.set_int32_le h 4 v
+      let get_msg_focus_detail h = Bytes.get_int32_le h 8
+      let set_msg_focus_detail h v = Bytes.set_int32_le h 8 v
+      let sizeof_msg_focus = 12
 
   (* Dom0 -> VM *)
   [%%cstruct
@@ -407,17 +456,24 @@ module GUI = struct
   ]
 
   (** Dom0 -> VM: Xorg conf *)
-  [%%cstruct
       type xconf = {
-        w : uint32_t; (** width *)
-        h : uint32_t; (** height *)
-        depth : uint32_t; (** bits per pixel *)
-        mem : uint32_t; (* TODO seemingly unused , could be: MemBase baseaddress
+        w : int32; (** width *)
+        h : int32; (** height *)
+        depth : int32; (** bits per pixel *)
+        mem : int32; (* TODO seemingly unused , could be: MemBase baseaddress
     This optional entry specifies the memory base address of a graphics board's
     linear frame buffer. This entry is not used by many drivers, and it should
     only be specified if the driver-specific documentation recommends it. *)
-      } [@@little_endian]
-  ]
+      }
+      let get_xconf_w h = Bytes.get_int32_le h 0
+      let set_xconf_w h v = Bytes.set_int32_le h 0 v
+      let get_xconf_h h = Bytes.get_int32_le h 4
+      let set_xconf_h h v = Bytes.set_int32_le h 4 v
+      let get_xconf_depth h = Bytes.get_int32_le h 8
+      let set_xconf_depth h v = Bytes.set_int32_le h 8 v
+      let get_xconf_mem h = Bytes.get_int32_le h 12
+      let set_xconf_mem h v = Bytes.set_int32_le h 12 v
+      let sizeof_xconf = 16
 
   (* https://tronche.com/gui/x/icccm/sec-4.html#WM_TRANSIENT_FOR *)
 
