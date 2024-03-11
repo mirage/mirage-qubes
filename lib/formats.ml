@@ -449,11 +449,12 @@ module GUI = struct
       let sizeof_msg_focus = 12
 
   (* Dom0 -> VM *)
-  [%%cstruct
       type msg_execute = {
-        cmd: uint8_t [@len 255];
-      } [@@little_endian]
-  ]
+        cmd: Bytes.t; (* uint8_t [@len 255]; *)
+      }
+      let get_msg_execute_cmd h = h
+      let set_msg_execute_cmd h v = Bytes.blit v 0 h 0 255
+      let sizeof_msg_execute = 255
 
   (** Dom0 -> VM: Xorg conf *)
       type xconf = {
@@ -478,19 +479,21 @@ module GUI = struct
   (* https://tronche.com/gui/x/icccm/sec-4.html#WM_TRANSIENT_FOR *)
 
   (** VM -> Dom0 *)
-  [%%cstruct
       type msg_wmname = {
-        data : uint8_t  [@len 128]; (* title of the window *)
-      } [@@little_endian]
-  ]
+        data : Bytes.t (*uint8_t  [@len 128];*) (* title of the window *)
+      }
+      let get_msg_wmname_data h = h
+      let set_msg_wmname_data h v = Bytes.blit v 0 h 0 128
+      let sizeof_msg_wmname = 128
 
   (** Dom0 -> VM *)
-  [%%cstruct
-   type msg_keymap_notify = {
-     (* this is a 256-bit bitmap of which keys should be enabled*)
-     keys : uint8_t [@len 32];
-   } [@@little_endian]
-  ]
+      type msg_keymap_notify = {
+        (* this is a 256-bit bitmap of which keys should be enabled*)
+        keys : Bytes.t (*uint8_t [@len 32];*)
+      }
+      let get_msg_keymap_notify_keys h = h
+      let set_msg_keymap_notify_keys h v = Bytes.blit v 0 h 0 32
+      let sizeof_msg_keymap_notify = 32
 
   (** VM -> Dom0 *)
   (* https://standards.freedesktop.org/wm-spec/latest/ *)
@@ -526,13 +529,16 @@ module GUI = struct
       let sizeof_msg_window_hints = 36
 
   (** VM -> Dom0, Dom0 -> VM *)
-  [%%cstruct
-   type msg_window_flags = {
-     (* &1= FULLSCREEN, &2= DEMANDS_ATTENTION, &4=MINIMIZE *)
-     flags_set   : uint32_t;
-     flags_unset : uint32_t;
-   } [@@little_endian]
-  ]
+      type msg_window_flags = {
+        (* &1= FULLSCREEN, &2= DEMANDS_ATTENTION, &4=MINIMIZE *)
+        flags_set   : int32;
+        flags_unset : int32;
+      }
+      let get_msg_window_flags_flags_set h = Bytes.get_int32_le h 0
+      let set_msg_window_flags_flags_set h v = Bytes.set_int32_le h 0 v
+      let get_msg_window_flags_flags_unset h = Bytes.get_int32_le h 4
+      let set_msg_window_flags_flags_unset h v = Bytes.set_int32_le h 4 v
+      let sizeof_msg_window_flags = 8
 
   (** VM -> Dom0 *)
       type shm_cmd = {
@@ -546,10 +552,10 @@ module GUI = struct
         (* followed by a variable length buffer of pixels:*)
         (* uint32_t mfns[0]; *)
       }
-      let get_shm_cmd_shmid h = Bytes.get_int32_le h 0
-      let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v
-      let get_shm_cmd_width h = Bytes.get_int32_le h 4
-      let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v
+      (* let get_shm_cmd_shmid h = Bytes.get_int32_le h 0 *)
+      (* let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v *)
+      (* let get_shm_cmd_width h = Bytes.get_int32_le h 4 *)
+      (* let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v *)
       let get_shm_cmd_height h = Bytes.get_int32_le h 8
       let set_shm_cmd_height h v = Bytes.set_int32_le h 8 v
       let get_shm_cmd_bpp h = Bytes.get_int32_le h 12
@@ -564,23 +570,25 @@ module GUI = struct
       
 
   (** VM -> Dom0 *)
-  [%%cstruct
-   type msg_wmclass = {
-     res_class : uint8_t [@len 64];
-     res_name : uint8_t [@len 64];
-   } [@@little_endian]
-  ]
+      type msg_wmclass = {
+        res_class : Bytes.t ; (* uint8_t [@len 64]; *)
+        res_name : Bytes.t ;(* uint8_t [@len 64]; *)
+      }
+      let get_shm_cmd_shmid h = Bytes.sub h 0 64
+      let set_shm_cmd_shmid h v = Bytes.blit v 0 h 0 64
+      let get_shm_cmd_width h = Bytes.sub h 64 64
+      let set_shm_cmd_width h v = Bytes.blit v 0 h 64 64
+      let sizeof_msg_wmclass = 128
 
-  [%%cenum
     type msg_type =
     (*| MSG_MIN [@id 123l] (* 0x7b_l *) *)
-    | MSG_KEYPRESS     [@id 124_l] (* 0x7c_l *)
+    | MSG_KEYPRESS     (*[@id 124_l]*) (* 0x7c_l *)
     | MSG_BUTTON
     | MSG_MOTION
     | MSG_CROSSING
     | MSG_FOCUS
     (*| MSG_RESIZE - DEPRECATED; NOT IMPLEMENTED *)
-    | MSG_CREATE        [@id 130_l] (* 0x82_l *)
+    | MSG_CREATE        (*[@id 130_l]*) (* 0x82_l *)
     | MSG_DESTROY
     | MSG_MAP
     | MSG_UNMAP
@@ -598,8 +606,6 @@ module GUI = struct
     | MSG_WINDOW_FLAGS
     | MSG_WMCLASS
     (*| MSG_MAX [@id 147l]*)
-    [@@uint32_t]
-  ]
 
   let msg_type_size = function
   | MSG_BUTTON -> Some sizeof_msg_button
@@ -625,6 +631,61 @@ module GUI = struct
   | MSG_WINDOW_HINTS -> Some sizeof_msg_window_hints
   | MSG_WMCLASS -> Some sizeof_msg_wmclass
   | MSG_WMNAME -> Some sizeof_msg_wmname (* window title *)
+
+  let msg_type_to_int = function
+    (*| MSG_MIN -> 123l [@id 123l] (* 0x7b_l *) *)
+    | MSG_KEYPRESS -> 124l     (*[@id 124_l]*) (* 0x7c_l *)
+    | MSG_BUTTON -> 125l
+    | MSG_MOTION -> 126l
+    | MSG_CROSSING -> 127l
+    | MSG_FOCUS -> 128l
+    (*| MSG_RESIZE -> - DEPRECATED; NOT IMPLEMENTED *)
+    | MSG_CREATE -> 130l        (*[@id 130_l]*) (* 0x82_l *)
+    | MSG_DESTROY -> 131l
+    | MSG_MAP -> 132l
+    | MSG_UNMAP -> 133l
+    | MSG_CONFIGURE -> 134l
+    | MSG_MFNDUMP -> 135l
+    | MSG_SHMIMAGE -> 136l
+    | MSG_CLOSE -> 137l
+    | MSG_EXECUTE -> 138l
+    | MSG_CLIPBOARD_REQ -> 139l
+    | MSG_CLIPBOARD_DATA -> 140l
+    | MSG_WMNAME -> 141l
+    | MSG_KEYMAP_NOTIFY -> 142l
+    | MSG_DOCK -> 143l
+    | MSG_WINDOW_HINTS -> 144l
+    | MSG_WINDOW_FLAGS -> 145l
+    | MSG_WMCLASS -> 146l
+    (*| MSG_MAX [@id 147l]*)
+
+  let int_to_msg_type = function
+    (*| 123l -> Some MSG_MIN  [@id 123l] (* 0x7b_l *) *)
+    | 124l -> Some MSG_KEYPRESS     (*[@id 124_l]*) (* 0x7c_l *)
+    | 125l -> Some MSG_BUTTON
+    | 126l -> Some MSG_MOTION
+    | 127l -> Some MSG_CROSSING
+    | 128l -> Some MSG_FOCUS
+    (*| 124l -> Some MSG_RESIZE - DEPRECATED; NOT IMPLEMENTED *)
+    | 130l -> Some MSG_CREATE         (*[@id 130_l]*) (* 0x82_l *)
+    | 131l -> Some MSG_DESTROY 
+    | 132l -> Some MSG_MAP
+    | 133l -> Some MSG_UNMAP
+    | 134l -> Some MSG_CONFIGURE
+    | 135l -> Some MSG_MFNDUMP
+    | 136l -> Some MSG_SHMIMAGE
+    | 137l -> Some MSG_CLOSE
+    | 138l -> Some MSG_EXECUTE
+    | 139l -> Some MSG_CLIPBOARD_REQ
+    | 140l -> Some MSG_CLIPBOARD_DATA
+    | 141l -> Some MSG_WMNAME
+    | 142l -> Some MSG_KEYMAP_NOTIFY
+    | 143l -> Some MSG_DOCK
+    | 144l -> Some MSG_WINDOW_HINTS
+    | 145l -> Some MSG_WINDOW_FLAGS
+    | 146l -> Some MSG_WMCLASS
+    (*| 147l -> Some MSG_MAX [@id 147l]*)
+    | _ -> None
 
   (** "MFN: machine frame number - actual hw addresses"
 http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
@@ -724,7 +785,6 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
 end
 
 module QubesDB = struct
-  [%%cenum
       type qdb_msg =
         | QDB_CMD_READ
         | QDB_CMD_WRITE
@@ -740,8 +800,56 @@ module QubesDB = struct
         | QDB_RESP_MULTIREAD
         | QDB_RESP_LIST
         | QDB_RESP_WATCH
-        [@@uint8_t]
-  ]
+
+      let qdb_msg_to_int = function
+        | QDB_CMD_READ -> 0
+        | QDB_CMD_WRITE -> 1
+        | QDB_CMD_MULTIREAD -> 2
+        | QDB_CMD_LIST -> 3
+        | QDB_CMD_RM -> 4
+        | QDB_CMD_WATCH -> 5
+        | QDB_CMD_UNWATCH -> 6
+        | QDB_RESP_OK -> 7
+        | QDB_RESP_ERROR_NOENT -> 8
+        | QDB_RESP_ERROR -> 9
+        | QDB_RESP_READ -> 10
+        | QDB_RESP_MULTIREAD -> 11
+        | QDB_RESP_LIST -> 12
+        | QDB_RESP_WATCH -> 13
+
+      let int_to_qdb_msg = function
+        | 0 -> Some QDB_CMD_READ
+        | 1 -> Some QDB_CMD_WRITE
+        | 2 -> Some QDB_CMD_MULTIREAD
+        | 3 -> Some QDB_CMD_LIST
+        | 4 -> Some QDB_CMD_RM
+        | 5 -> Some QDB_CMD_WATCH
+        | 6 -> Some QDB_CMD_UNWATCH
+        | 7 -> Some QDB_RESP_OK
+        | 8 -> Some QDB_RESP_ERROR_NOENT
+        | 9 -> Some QDB_RESP_ERROR
+        | 10 -> Some QDB_RESP_READ
+        | 11 -> Some QDB_RESP_MULTIREAD
+        | 12 -> Some QDB_RESP_LIST
+        | 13 -> Some QDB_RESP_WATCH
+        | _ -> None
+
+      let qdb_msg_to_string = function
+        | QDB_CMD_READ -> "QDB_CMD_READ"
+        | QDB_CMD_WRITE -> "QDB_CMD_WRITE"
+        | QDB_CMD_MULTIREAD -> "QDB_CMD_MULTIREAD"
+        | QDB_CMD_LIST -> "QDB_CMD_LIST"
+        | QDB_CMD_RM -> "QDB_CMD_RM"
+        | QDB_CMD_WATCH -> "QDB_CMD_WATCH"
+        | QDB_CMD_UNWATCH -> "QDB_CMD_UNWATCH"
+        | QDB_RESP_OK -> "QDB_RESP_OK"
+        | QDB_RESP_ERROR_NOENT -> "QDB_RESP_ERROR_NOENT"
+        | QDB_RESP_ERROR -> "QDB_RESP_ERROR"
+        | QDB_RESP_READ -> "QDB_RESP_READ"
+        | QDB_RESP_MULTIREAD -> "QDB_RESP_MULTIREAD"
+        | QDB_RESP_LIST -> "QDB_RESP_LIST"
+        | QDB_RESP_WATCH -> "QDB_RESP_WATCH"
+
 
       type msg_header = {
         ty        : int;
@@ -775,40 +883,59 @@ end
 module Rpc_filecopy = struct
   (* see qubes-linux-utils/qrexec-lib/libqubes-rpc-filecopy.h
    * and qubes-core-agent-windows/src/qrexec-services/common/filecopy.h*)
-  [%%cstruct
       type file_header = {
-        namelen    : uint32;
-        mode       : uint32;
-        filelen    : uint64;
-        atime      : uint32;
-        atime_nsec : uint32;
-        mtime      : uint32;
-        mtime_nsec : uint32;
-      } [@@little_endian]
+        namelen    : int32;
+        mode       : int32;
+        filelen    : int64;
+        atime      : int32;
+        atime_nsec : int32;
+        mtime      : int32;
+        mtime_nsec : int32;
+      }
       (* followed by filename[namelen] and data[filelen] *)
-  ]
+      let get_file_header_namelen h = Bytes.get_int32_le h 0
+      let set_file_header_namelen h v = Bytes.set_int32_le h 0 v
+      let get_file_header_mode h = Bytes.get_int32_le h 4
+      let set_file_header_mode h v = Bytes.set_int32_le h 4 v
+      let get_file_header_filelen h = Bytes.get_int64_le h 8
+      let set_file_header_filelen h v = Bytes.set_int64_le h 8 v
+      let get_file_header_atime h = Bytes.get_int32_le h 16
+      let set_file_header_atime h v = Bytes.set_int32_le h 16 v
+      let get_file_header_atime_nsec h = Bytes.get_int32_le h 20
+      let set_file_header_atime_nsec h v = Bytes.set_int32_le h 20 v
+      let get_file_header_mtime h = Bytes.get_int32_le h 24
+      let set_file_header_mtime h v = Bytes.set_int32_le h 24 v
+      let get_file_header_mtime_nsec h = Bytes.get_int32_le h 28
+      let set_file_header_mtime_nsec h v = Bytes.set_int32_le h 28 v
+      let sizeof_file_header = 32
 
-  [%%cstruct
       type result_header = {
-        error_code : uint32;
-        _pad       : uint32;
-        crc32      : uint64;
-      } [@@little_endian]
-  ]
+        error_code : int32;
+        _pad       : int32;
+        crc32      : int64;
+      }
+      let get_result_header_error_code h = Bytes.get_int32_le h 0
+      let set_result_header_error_code h v = Bytes.set_int32_le h 0 v
+      (* let get_result_header__pad h = Bytes.get_int32_le h 4 *)
+      (* let set_result_header__pad h v = Bytes.set_int32_le h 4 v *)
+      let get_result_header_crc32 h = Bytes.get_int64_le h 8
+      let set_result_header_crc32 h v = Bytes.set_int64_le h 8 v
+      let sizeof_result_header = 16
 
-  [%%cstruct
       type result_header_ext = {
-        last_namelen : uint32;
+        last_namelen : int32;
         (* TODO char last_name[0]; variable length[last_namelen] *)
-      } [@@little_endian]
-  ]
+      }
+      let get_result_header_ext_last_namelen h = Bytes.get_int32_le h 0
+      let set_result_header_ext_last_namelen h v = Bytes.set_int32_le h 0 v
+      let sizeof_result_header_ext = 4
 
   let make_result_header_ext last_filename =
-    let namelen = Cstruct.length last_filename in
-    let msg = Cstruct.create (sizeof_result_header_ext + namelen) in
+    let namelen = Bytes.length last_filename in
+    let msg = Bytes.create (sizeof_result_header_ext + namelen) in
     set_result_header_ext_last_namelen msg (Int32.of_int namelen);
-    Cstruct.blit (* src  srcoff *) last_filename 0
-                 (* dst  dstoff *) msg sizeof_result_header_ext
-                 (* len *) namelen ;
+    Bytes.blit (* src  srcoff *) last_filename 0
+               (* dst  dstoff *) msg sizeof_result_header_ext
+               (* len *) namelen ;
     msg
 end
