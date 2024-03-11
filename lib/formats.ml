@@ -20,8 +20,8 @@ module Qrexec = struct
       type peer_info = {
         version : int32;
       }
-      let get_peer_info_version h = Bytes.get_int32_le h 4
-      let set_peer_info_version h v = Bytes.set_int32_le h 4 v
+      let get_peer_info_version h = Bytes.get_int32_le h 0
+      let set_peer_info_version h v = Bytes.set_int32_le h 0 v
       let sizeof_peer_info = 4
 
       type exec_params = {
@@ -173,12 +173,15 @@ module GUI = struct
       let sizeof_msg_header = 12
 
   (** VM -> Dom0, Dom0 -> VM *)
-  [%%cstruct
       type msg_map_info = {
-        override_redirect : uint32_t;
-        transient_for     : uint32_t;
-      } [@@little_endian]
-  ]
+        override_redirect : int32;
+        transient_for     : int32;
+      }
+      let get_msg_map_info_override_redirect h = Bytes.get_int32_le h 0
+      let set_msg_map_info_override_redirect h v = Bytes.set_int32_le h 0 v
+      let get_msg_map_info_transient_for h = Bytes.get_int32_le h 4
+      let set_msg_map_info_transient_for h v = Bytes.set_int32_le h 4 v
+      let sizeof_msg_map_info = 8
 
   (** Dom0 -> VM, dom0 wants us to reply with a MSG_CLIPBOARD_DATA *)
   let sizeof_msg_clipboard_req = 0
@@ -194,16 +197,27 @@ module GUI = struct
   ]
 
   (** VM -> Dom0 *)
-  [%%cstruct
       type msg_create = {
-        x      : uint32_t; (* position of window, seems to be converted *)
-        y      : uint32_t;
-        width  : uint32_t;
-        height : uint32_t; (* from qubes src: "size of image" *)
-        parent : uint32_t;
-        override_redirect : uint32_t;
-      } [@@little_endian]
-  ]
+        x      : int32; (* position of window, seems to be converted *)
+        y      : int32;
+        width  : int32;
+        height : int32; (* from qubes src: "size of image" *)
+        parent : int32;
+        override_redirect : int32;
+      }
+      let get_msg_create_x h = Bytes.get_int32_le h 0
+      let set_msg_create_x h v = Bytes.set_int32_le h 0 v
+      let get_msg_create_y h = Bytes.get_int32_le h 4
+      let set_msg_create_y h v = Bytes.set_int32_le h 4 v
+      let get_msg_create_width h = Bytes.get_int32_le h 8
+      let set_msg_create_width h v = Bytes.set_int32_le h 8 v
+      let get_msg_create_height h = Bytes.get_int32_le h 12
+      let set_msg_create_height h v = Bytes.set_int32_le h 12 v
+      let get_msg_create_parent h = Bytes.get_int32_le h 16
+      let set_msg_create_parent h v = Bytes.set_int32_le h 16 v
+      let get_msg_create_override_redirect h = Bytes.get_int32_le h 20
+      let set_msg_create_override_redirect h v = Bytes.set_int32_le h 20 v
+      let sizeof_msg_create = 24
 
   type msg_keypress_t =
     {
@@ -318,15 +332,24 @@ module GUI = struct
   (** VM -> Dom0, Dom0 -> VM, note that when you send this you must read the
                           "corrected" MSG_CONFIGURE you get back and use those
                           values instead of your own *)
-  [%%cstruct
       type msg_configure = {
-        x      : uint32_t;
-        y      : uint32_t;
-        width  : uint32_t;
-        height : uint32_t;
-        override_redirect : uint32_t;
-      } [@@little_endian]
-    ]
+        x      : int32;
+        y      : int32;
+        width  : int32;
+        height : int32;
+        override_redirect : int32;
+      }
+      let get_msg_configure_x h = Bytes.get_int32_le h 0
+      let set_msg_configure_x h v = Bytes.set_int32_le h 0 v
+      let get_msg_configure_y h = Bytes.get_int32_le h 4
+      let set_msg_configure_y h v = Bytes.set_int32_le h 4 v
+      let get_msg_configure_width h = Bytes.get_int32_le h 8
+      let set_msg_configure_width h v = Bytes.set_int32_le h 8 v
+      let get_msg_configure_height h = Bytes.get_int32_le h 12
+      let set_msg_configure_height h v = Bytes.set_int32_le h 12 v
+      let get_msg_configure_override_redirect h = Bytes.get_int32_le h 16
+      let set_msg_configure_override_redirect h v = Bytes.set_int32_le h 16 v
+      let sizeof_msg_configure = 20
 
   type msg_configure_t = {
     x: int32;
@@ -344,15 +367,23 @@ module GUI = struct
             override_redirect = get_msg_configure_override_redirect cs ;
           } : msg_configure_t)
 
-  (** VM -> Dom0 *)
-  [%%cstruct
-   type msg_shmimage = {
-     x : uint32_t;
-     y : uint32_t;
-     width : uint32_t;
-     height: uint32_t;
-   } [@@little_endian]
-  ]
+    (** VM -> Dom0 *)
+      type msg_shmimage = {
+        x : int32;
+        y : int32;
+        width : int32;
+        height: int32;
+      }
+      let get_msg_shmimage_x h = Bytes.get_int32_le h 0
+      let set_msg_shmimage_x h v = Bytes.set_int32_le h 0 v
+      let get_msg_shmimage_y h = Bytes.get_int32_le h 4
+      let set_msg_shmimage_y h v = Bytes.set_int32_le h 4 v
+      let get_msg_shmimage_width h = Bytes.get_int32_le h 8
+      let set_msg_shmimage_width h v = Bytes.set_int32_le h 8 v
+      let get_msg_shmimage_height h = Bytes.get_int32_le h 12
+      let set_msg_shmimage_height h v = Bytes.set_int32_le h 12 v
+      let sizeof_msg_shmimage = 16
+
 
   type msg_focus_t = {
     mode : Cstruct.uint32;
@@ -407,19 +438,36 @@ module GUI = struct
 
   (** VM -> Dom0 *)
   (* https://standards.freedesktop.org/wm-spec/latest/ *)
-  [%%cstruct
-   type msg_window_hints = {
-     flags : uint32_t;
-     min_width : uint32_t;
-     min_height: uint32_t;
-     max_width: uint32_t;
-     max_height: uint32_t;
-     width_inc: uint32_t;
-     height_inc: uint32_t;
-     base_width: uint32_t;
-     base_height: uint32_t;
-   } [@@little_endian]
-  ]
+      type msg_window_hints = {
+        flags : int32;
+        min_width : int32;
+        min_height: int32;
+        max_width: int32;
+        max_height: int32;
+        width_inc: int32;
+        height_inc: int32;
+        base_width: int32;
+        base_height: int32;
+      }
+      let get_msg_window_hints_flags h = Bytes.get_int32_le h 0
+      let set_msg_window_hints_flags h v = Bytes.set_int32_le h 0 v
+      let get_msg_window_hints_min_width h = Bytes.get_int32_le h 4
+      let set_msg_window_hints_min_width h v = Bytes.set_int32_le h 4 v
+      let get_msg_window_hints_min_height h = Bytes.get_int32_le h 8
+      let set_msg_window_hints_min_height h v = Bytes.set_int32_le h 8 v
+      let get_msg_window_hints_max_width h = Bytes.get_int32_le h 12
+      let set_msg_window_hints_max_width h v = Bytes.set_int32_le h 12 v
+      let get_msg_window_hints_max_height h = Bytes.get_int32_le h 16
+      let set_msg_window_hints_max_height h v = Bytes.set_int32_le h 16 v
+      let get_msg_window_hints_width_inc h = Bytes.get_int32_le h 20
+      let set_msg_window_hints_width_inc h v = Bytes.set_int32_le h 20 v
+      let get_msg_window_hints_height_inc h = Bytes.get_int32_le h 24
+      let set_msg_window_hints_height_inc h v = Bytes.set_int32_le h 24 v
+      let get_msg_window_hints_base_width h = Bytes.get_int32_le h 28
+      let set_msg_window_hints_base_width h v = Bytes.set_int32_le h 28 v
+      let get_msg_window_hints_base_height h = Bytes.get_int32_le h 32
+      let set_msg_window_hints_base_height h v = Bytes.set_int32_le h 32 v
+      let sizeof_msg_window_hints = 36
 
   (** VM -> Dom0, Dom0 -> VM *)
   [%%cstruct
@@ -431,19 +479,33 @@ module GUI = struct
   ]
 
   (** VM -> Dom0 *)
-  [%%cstruct
       type shm_cmd = {
-        shmid     : uint32_t;
-        width     : uint32_t;
-        height    : uint32_t;
-        bpp       : uint32_t; (* bpp = bits per pixel *)
-        off       : uint32_t;
-        num_mfn   : uint32_t; (* number of pixels *)
-        domid     : uint32_t;
+        shmid     : int32;
+        width     : int32;
+        height    : int32;
+        bpp       : int32; (* bpp = bits per pixel *)
+        off       : int32;
+        num_mfn   : int32; (* number of pixels *)
+        domid     : int32;
         (* followed by a variable length buffer of pixels:*)
         (* uint32_t mfns[0]; *)
-      } [@@little_endian]
-  ]
+      }
+      let get_shm_cmd_shmid h = Bytes.get_int32_le h 0
+      let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v
+      let get_shm_cmd_width h = Bytes.get_int32_le h 4
+      let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v
+      let get_shm_cmd_height h = Bytes.get_int32_le h 8
+      let set_shm_cmd_height h v = Bytes.set_int32_le h 8 v
+      let get_shm_cmd_bpp h = Bytes.get_int32_le h 12
+      let set_shm_cmd_bpp h v = Bytes.set_int32_le h 12 v
+      let get_shm_cmd_off h = Bytes.get_int32_le h 16
+      let set_shm_cmd_off h v = Bytes.set_int32_le h 16 v
+      let get_shm_cmd_num_mfn h = Bytes.get_int32_le h 20
+      let set_shm_cmd_num_mfn h v = Bytes.set_int32_le h 20 v
+      let get_shm_cmd_domid h = Bytes.get_int32_le h 24
+      let set_shm_cmd_domid h v = Bytes.set_int32_le h 24 v
+      let sizeof_shm_cmd = 28
+      
 
   (** VM -> Dom0 *)
   [%%cstruct
@@ -531,7 +593,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
     (* n.b. must be followed by a MSG_SHMIMAGE to actually repaint *)
     let num_mfn = List.length mfns in
     let offset  = 0x0l in
-    let body = Cstruct.create (sizeof_shm_cmd + num_mfn*4) in
+    let body = Bytes.create (sizeof_shm_cmd + num_mfn*4) in
     set_shm_cmd_width   body width;
     set_shm_cmd_height  body height;
     set_shm_cmd_bpp     body 24l; (* bits per pixel *)
@@ -574,7 +636,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
 
   let make_msg_wmname ~window ~wmname =
     let body = Bytes.create sizeof_msg_wmname in
-    let()= Bytes.blit_from_string wmname 0 body 0
+    let()= Bytes.blit (Bytes.of_string wmname) 0 body 0
       (min String.(length wmname) sizeof_msg_wmname) ; (* length *) in
     make_with_header ~window ~ty:MSG_WMNAME body
 
