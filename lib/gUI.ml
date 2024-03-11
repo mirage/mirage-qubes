@@ -107,8 +107,8 @@ let decode_CONFIGURE buf =
   match decode_msg_configure buf with
   | Some m -> Configure m
   | None ->
-    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: %a"
-                 Cstruct.hexdump_pp buf) ;
+    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: ") ;
+    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
     UNIT ()
 
 let recv_event (window:window) =

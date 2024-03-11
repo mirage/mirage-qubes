@@ -687,20 +687,26 @@ module QubesDB = struct
         [@@uint8_t]
   ]
 
-  [%%cstruct
       type msg_header = {
-        ty        : uint8_t;
-        path      : uint8_t [@len 64];
-        padding   : uint8_t [@len 3];
-        data_len  : uint32_t;
+        ty        : int;
+        path      : Bytes.t; (* [@len 64]; *)
+        padding   : Bytes.t; (* [@len 3]; *)
+        data_len  : int32;
         (* rest of message is data *)
-      } [@@little_endian]
-  ]
+      }
+      let get_msg_header_ty h = Bytes.get_uint8 h 0
+      let set_msg_header_ty h v = Bytes.set_uint8 h 0 v
+      let get_msg_header_path h = Bytes.sub h 1 64
+      let set_msg_header_path h v = Bytes.blit v 0 h 1 64
+      let get_msg_header_data_len h = Bytes.get_int32_le h 68
+      let set_msg_header_data_len h v = Bytes.set_int32_le h 68 v
+      let sizeof_msg_header = 72
+
 
   let make_msg_header ~ty ~path ~data_len =
-    let msg = Cstruct.create sizeof_msg_header in
+    let msg = Bytes.create sizeof_msg_header in
     set_msg_header_ty msg (qdb_msg_to_int ty);
-    Cstruct.blit_from_string path 0 (get_msg_header_path msg) 0 (String.length path);
+    Bytes.blit (Bytes.of_string path) 0 (get_msg_header_path msg) 0 (String.length path);
     set_msg_header_data_len msg (Int32.of_int data_len);
     msg
 
