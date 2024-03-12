@@ -50,9 +50,9 @@ module Qrexec = struct
       let get_trigger_service_params_service_name h = Bytes.sub h 0 64
       let set_trigger_service_params_service_name v ofs h = Bytes.blit_string v 0 h ofs 64
       let get_trigger_service_params_target_domain h = Bytes.sub h 64 32
-      let set_trigger_service_params_target_domain v ofs h = Bytes.blit_string v 0 h ofs 32
+      let set_trigger_service_params_target_domain v ofs h = Bytes.blit_string v 0 h (64+ofs) 32
       let get_trigger_service_params_request_id h = Bytes.sub h 96 32
-      let set_trigger_service_params_request_id v ofs h = Bytes.blit_string v 0 h ofs 32
+      let set_trigger_service_params_request_id v ofs h = Bytes.blit_string v 0 h (96+ofs) 32
       let sizeof_trigger_service_params = 64+32+32
 
       type trigger_service_params3 = {
@@ -63,7 +63,7 @@ module Qrexec = struct
       let get_trigger_service_params3_target_domain h = Bytes.sub h 0 64
       let set_trigger_service_params3_target_domain v ofs h = Bytes.blit_string v 0 h ofs 64
       let get_trigger_service_params3_request_id h = Bytes.sub h 64 32
-      let set_trigger_service_params3_request_id v ofs h = Bytes.blit_string v 0 h ofs 32
+      let set_trigger_service_params3_request_id v ofs h = Bytes.blit_string v 0 h (64+ofs) 32
       let sizeof_trigger_service_params3 = 64+32
     
   type msg_type =
@@ -452,8 +452,8 @@ module GUI = struct
       type msg_execute = {
         cmd: Bytes.t; (* uint8_t [@len 255]; *)
       }
-      let get_msg_execute_cmd h = h
-      let set_msg_execute_cmd h v = Bytes.blit v 0 h 0 255
+      (* let get_msg_execute_cmd h = h *)
+      (* let set_msg_execute_cmd h v = Bytes.blit v 0 h 0 255 *)
       let sizeof_msg_execute = 255
 
   (** Dom0 -> VM: Xorg conf *)
@@ -482,8 +482,8 @@ module GUI = struct
       type msg_wmname = {
         data : Bytes.t (*uint8_t  [@len 128];*) (* title of the window *)
       }
-      let get_msg_wmname_data h = h
-      let set_msg_wmname_data h v = Bytes.blit v 0 h 0 128
+      (* let get_msg_wmname_data h = h *)
+      (* let set_msg_wmname_data h v = Bytes.blit v 0 h 0 128 *)
       let sizeof_msg_wmname = 128
 
   (** Dom0 -> VM *)
@@ -491,8 +491,8 @@ module GUI = struct
         (* this is a 256-bit bitmap of which keys should be enabled*)
         keys : Bytes.t (*uint8_t [@len 32];*)
       }
-      let get_msg_keymap_notify_keys h = h
-      let set_msg_keymap_notify_keys h v = Bytes.blit v 0 h 0 32
+      (* let get_msg_keymap_notify_keys h = h *)
+      (* let set_msg_keymap_notify_keys h v = Bytes.blit v 0 h 0 32 *)
       let sizeof_msg_keymap_notify = 32
 
   (** VM -> Dom0 *)
@@ -552,10 +552,10 @@ module GUI = struct
         (* followed by a variable length buffer of pixels:*)
         (* uint32_t mfns[0]; *)
       }
-      (* let get_shm_cmd_shmid h = Bytes.get_int32_le h 0 *)
-      (* let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v *)
-      (* let get_shm_cmd_width h = Bytes.get_int32_le h 4 *)
-      (* let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v *)
+      let get_shm_cmd_shmid h = Bytes.get_int32_le h 0
+      let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v
+      let get_shm_cmd_width h = Bytes.get_int32_le h 4
+      let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v
       let get_shm_cmd_height h = Bytes.get_int32_le h 8
       let set_shm_cmd_height h v = Bytes.set_int32_le h 8 v
       let get_shm_cmd_bpp h = Bytes.get_int32_le h 12
@@ -574,10 +574,10 @@ module GUI = struct
         res_class : Bytes.t ; (* uint8_t [@len 64]; *)
         res_name : Bytes.t ;(* uint8_t [@len 64]; *)
       }
-      let get_shm_cmd_shmid h = Bytes.sub h 0 64
-      let set_shm_cmd_shmid h v = Bytes.blit v 0 h 0 64
-      let get_shm_cmd_width h = Bytes.sub h 64 64
-      let set_shm_cmd_width h v = Bytes.blit v 0 h 64 64
+      (* let get_msg_wmclass_res_class h = Bytes.sub h 0 64 *)
+      (* let set_msg_wmclass_res_class h v = Bytes.blit v 0 h 0 64 *)
+      (* let get_msg_wmclass_res_name h = Bytes.sub h 64 64 *)
+      (* let set_msg_wmclass_res_name h v = Bytes.blit v 0 h 64 64 *)
       let sizeof_msg_wmclass = 128
 
     type msg_type =
@@ -861,7 +861,7 @@ module QubesDB = struct
       let get_msg_header_ty h = Bytes.get_uint8 h 0
       let set_msg_header_ty h v = Bytes.set_uint8 h 0 v
       let get_msg_header_path h = Bytes.sub h 1 64
-      let set_msg_header_path h v = Bytes.blit v 0 h 1 64
+      let set_msg_header_path h v = Bytes.blit_string v 0 h 1 (min (String.length v) 64)
       let get_msg_header_data_len h = Bytes.get_int32_le h 68
       let set_msg_header_data_len h v = Bytes.set_int32_le h 68 v
       let sizeof_msg_header = 72
@@ -870,7 +870,7 @@ module QubesDB = struct
   let make_msg_header ~ty ~path ~data_len =
     let msg = Bytes.create sizeof_msg_header in
     set_msg_header_ty msg (qdb_msg_to_int ty);
-    Bytes.blit (Bytes.of_string path) 0 (get_msg_header_path msg) 0 (String.length path);
+    set_msg_header_path msg path;
     set_msg_header_data_len msg (Int32.of_int data_len);
     msg
 

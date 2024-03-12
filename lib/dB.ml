@@ -56,9 +56,9 @@ let recv t =
     match int_to_qdb_msg ty with
     | None -> Fmt.failwith "Invalid message type %d" ty
     | Some ty -> ty in
-  let path = Bytes.to_string (get_msg_header_path hdr) in
-  let path = String.sub path 0 (String.index path '\x00') in
-  Lwt.return (ty, path, Bytes.to_string data)
+  let path = get_msg_header_path hdr in
+  let path = Bytes.sub path 0 (Bytes.index path '\x00') in
+  Lwt.return (ty, Bytes.to_string path, Bytes.to_string data)
 
 let values_for_key store key =
   KeyMap.filter (fun k _ -> starts_with k (key ^ "/")) store
