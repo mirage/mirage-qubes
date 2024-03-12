@@ -281,7 +281,6 @@ let port_of_int i =
   | Error (`Msg msg) -> failwith msg
 
 let parse_cmdline cmd =
-  let cmd = Bytes.to_string cmd in
   if cmd.[String.length cmd - 1] <> '\x00' then
     Lwt.fail_with "Command not null-terminated"
   else (
@@ -295,8 +294,9 @@ let exec t ~ty ~handler msg =
   Lwt.async (fun () ->
     let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
-    let cmdline = Bytes.sub msg sizeof_exec_params (Bytes.length msg) in
-    Log.debug (fun f -> f "Execute %S" (Bytes.to_string cmdline));
+    let len = Bytes.length msg in
+    let cmdline = Bytes.sub_string msg sizeof_exec_params (len - sizeof_exec_params) in
+    Log.debug (fun f -> f "Execute %S" cmdline);
     Lwt.finalize
       (fun () ->
         with_flow ~ty ~domid ~port (fun flow ->
