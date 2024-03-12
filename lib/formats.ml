@@ -868,7 +868,7 @@ module QubesDB = struct
 
 
   let make_msg_header ~ty ~path ~data_len =
-    let msg = Bytes.create sizeof_msg_header in
+    let msg = Bytes.make sizeof_msg_header '\x00' in
     set_msg_header_ty msg (qdb_msg_to_int ty);
     set_msg_header_path msg path;
     set_msg_header_data_len msg (Int32.of_int data_len);
