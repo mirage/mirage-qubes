@@ -66,7 +66,9 @@ let values_for_key store key =
 let full_db_sync t =
   send t.vchan QDB_CMD_MULTIREAD >>!= fun () ->
   let rec loop () =
-    recv t.vchan >>= function
+    recv t.vchan >>= function (*fun (ty, path, data) ->
+    Printf.printf "got path %s with %s\n" path  (qdb_msg_to_string ty) ;
+    match (ty, path, data) with*)
     | QDB_RESP_MULTIREAD, "", _ -> Lwt.return `Done
     | QDB_RESP_MULTIREAD, path, data ->
         Log.debug (fun f -> f "%S = %S" path data);

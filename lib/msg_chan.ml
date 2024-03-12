@@ -27,7 +27,7 @@ module Make (F : Formats.FRAMING) = struct
     let avail = Bytes.length t.buffer in
     if avail >= size then (
       let retval = Bytes.sub t.buffer 0 size in
-      Bytes.blit t.buffer size t.buffer 0 (avail-size);
+      t.buffer <- Bytes.sub t.buffer size (avail-size);
       return (`Ok retval)
     ) else (
       Vchan_xen.read t.vchan >|= unwrap_read >>!= fun buf ->
