@@ -74,14 +74,12 @@ let decode_FOCUS buf =
   } in
   Focus focus
 
-let decode_MSG_CLOSE _buf =
-  Log.warn (fun f -> f "Event: CLOSE: ") ;
-(* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
+let decode_MSG_CLOSE buf =
+  Log.warn (fun f -> f "Event: CLOSE: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
   Window_close
 
 let decode_CLIPBOARD_DATA buf =
-  Log.warn (fun f -> f "Event: CLIPBOARD_DATA:");
-(* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
+  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
   let len = get_msg_clipboard_data_len buf |> Int32.to_int in
   match
     Int32.compare (get_msg_clipboard_data_len buf) 0l = -1
@@ -102,16 +100,14 @@ let decode_MSG_MOTION buf =
                  m.x m.y m.state m.is_hint);
     Motion m
   | None ->
-    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: ");
-        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
+    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
     UNIT ()
 
 let decode_CONFIGURE buf =
   match decode_msg_configure buf with
   | Some m -> Configure m
   | None ->
-    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: ") ;
-    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) buf ;*)
+    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
     UNIT ()
 
 let recv_event (window:window) =
@@ -199,15 +195,14 @@ let rec listen t () =
          | MSG_CLOSE as msg)
     when (match msg_type_size msg with Some x -> x <> msg_len | None -> true) ->
     Log.warn (fun f -> f "BUG: expected_size [%d] <> msg_len [%d] for fixed-\
-                          size msg! msg_header: @ Received raw buffer:: "
+                          size msg! msg_header: %a@ Received raw buffer:: %a"
                  (match msg_type_size msg with Some x -> x | None -> -1)
-                 msg_len) ;
-    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_header ;*)
-    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+                 msg_len
+                 (Ohex.pp ()) (Bytes.unsafe_to_string msg_header)
+                 (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf)) ;
     UNIT()
   | Some MSG_MAP ->
-    Log.warn (fun f -> f "Event: MAP: ");
-    (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+    Log.warn (fun f -> f "Event: MAP: %s" (Ohex.encode (Bytes.to_string msg_buf)));
     UNIT()
   | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> decode_FOCUS msg_buf
@@ -217,30 +212,25 @@ let rec listen t () =
     Clipboard_request
   | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
       | Some event -> Window_crossing event
-      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding ")
-             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf))
               ; UNIT ()
       end
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
       | Some button_event -> Button button_event
-      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding ")
-             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf))
         ; UNIT ()
       end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
-    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: ");
-             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf));
     UNIT()
   | Some MSG_WINDOW_FLAGS ->
-    Log.warn (fun f -> f "Event: WINDOW_FLAGS: ")
+    Log.warn (fun f -> f "Event: WINDOW_FLAGS: %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf))
       ;
-             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
       UNIT ()
   | Some MSG_CONFIGURE ->
-    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): ");
-             (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf));
     (* TODO here we should ACK to Qubes that we accept the new dimensions,
             atm this is the responsibility of the user: *)
     decode_CONFIGURE msg_buf
@@ -257,13 +247,12 @@ let rec listen t () =
     (* Handle messages that are appvm->dom0 and thus dom0 is not supposed
        to send to the VM: *)
     Log.warn (fun f ->
-        f "UNEXPECTED message received. Data:");
-        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+        f "UNEXPECTED message received. Data: %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf));
         UNIT()
   | None ->
-    Log.warn (fun f -> f "Unexpected data with unknown type: [] a") ;
-        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_header ;*)
-        (* Bytes.iter (fun c -> Printf.printf ("%02x ") (char_to_int c)) msg_buf ;*)
+    Log.warn (fun f -> f "Unexpected data with unknown type: [%a] a %a"
+        (Ohex.pp ()) (Bytes.unsafe_to_string msg_header)
+        (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf)) ;
     UNIT()
   end
   >>= fun () -> listen t ()
