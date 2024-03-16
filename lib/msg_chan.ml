@@ -18,20 +18,22 @@ module Make (F : Formats.FRAMING) = struct
   type t = {
     domid : int;
     vchan : Vchan_xen.flow;
-    mutable buffer : Bytes.t;
+    mutable buffer : String.t;
     read_lock : Lwt_mutex.t;
     write_lock : Lwt_mutex.t;
   }
 
   let rec read_exactly t size =
-    let avail = Bytes.length t.buffer in
+    let avail = String.length t.buffer in
     if avail >= size then (
-      let retval = Bytes.sub t.buffer 0 size in
-      t.buffer <- Bytes.sub t.buffer size (avail-size);
+      let retval = String.sub t.buffer 0 size in
+      let new_buf = String.sub t.buffer size (avail-size) in
+      t.buffer <- new_buf ;
       return (`Ok retval)
     ) else (
       Vchan_xen.read t.vchan >|= unwrap_read >>!= fun buf ->
-      t.buffer <- Bytes.cat t.buffer (Cstruct.to_bytes buf);
+      let new_buf = t.buffer ^ (Cstruct.to_string buf) in
+      t.buffer <- new_buf ;
       read_exactly t size
     )
 
@@ -48,22 +50,22 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok body)
     )
 
-  let recv_raw t : Bytes.t S.or_eof Lwt.t =
+  let recv_raw t : String.t S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.read_lock @@ fun () ->
-    if Bytes.length t.buffer > 0 then (
+    if String.length t.buffer > 0 then (
       let data = t.buffer in
-      t.buffer <- Bytes.empty;
+      t.buffer <- String.empty;
       return (`Ok data)
     ) else (
       Vchan_xen.read t.vchan >|= unwrap_read >>!= fun result ->
-      let data = Cstruct.to_bytes result in
+      let data = Cstruct.to_string result in
       return (`Ok data)
     )
 
-  let send t (buffers : Bytes.t list) : unit S.or_eof Lwt.t =
+  let send t (buffers : String.t list) : unit S.or_eof Lwt.t =
+    let cs = List.map Cstruct.of_string buffers in
     Lwt_mutex.with_lock t.write_lock (fun () ->
-      let c = Bytes.concat Bytes.empty buffers in
-      Vchan_xen.writev t.vchan [Cstruct.of_bytes c] >>= function
+      Vchan_xen.writev t.vchan cs >>= function
       | Error `Closed -> return `Eof
       | Error e -> fail (Failure (Format.asprintf "%a" Vchan_xen.pp_write_error e))
       | Ok _ -> return @@ `Ok ()
@@ -73,7 +75,7 @@ module Make (F : Formats.FRAMING) = struct
     Vchan_xen.server ~domid ~port () >|= fun vchan -> {
       vchan;
       domid;
-      buffer = Bytes.empty;
+      buffer = String.empty;
       read_lock = Lwt_mutex.create ();
       write_lock = Lwt_mutex.create ();
     }
@@ -82,7 +84,7 @@ module Make (F : Formats.FRAMING) = struct
     Vchan_xen.client ~domid ~port () >|= fun vchan -> {
       vchan;
       domid;
-      buffer = Bytes.empty;
+      buffer = String.empty;
       read_lock = Lwt_mutex.create ();
       write_lock = Lwt_mutex.create ();
     }

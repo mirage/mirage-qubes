@@ -1,9 +1,14 @@
 (** The Qubes wire protocol details. *)
 (** for more details, see qubes-gui-common/include/qubes-gui-protocol.h *)
 
+let of_int32_le i =
+  assert(i < Int32.max_int);
+  let i = Int32.to_int i in
+  String.init 4 (fun p -> Char.chr ((i lsr (p*8)) land 0xff))
+
 module type FRAMING = sig
   val header_size : int
-  val body_size_from_header : Bytes.t -> int
+  val body_size_from_header : String.t -> int
 end
 
 module Qrexec = struct
@@ -11,17 +16,17 @@ module Qrexec = struct
         ty : int32;
         len : int32;
       }
-      let get_msg_header_ty h = Bytes.get_int32_le h 0
-      let set_msg_header_ty h v = Bytes.set_int32_le h 0 v
-      let get_msg_header_len h = Bytes.get_int32_le h 4
-      let set_msg_header_len h v = Bytes.set_int32_le h 4 v
+      let get_msg_header_ty h = String.get_int32_le h 0
+      (* let set_msg_header_ty h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_header_len h = String.get_int32_le h 4
+      (* let set_msg_heade.r_len h vString= Bytes.set_int32_le h 4 v *)
       let sizeof_msg_header = 8
 
       type peer_info = {
         version : int32;
       }
-      let get_peer_info_version h = Bytes.get_int32_le h 0
-      let set_peer_info_version h v = Bytes.set_int32_le h 0 v
+      let get_peer_info_version h = String.get_int32_le h 0
+      (* let set_peer_info_version h v = Bytes.set_int32_le h 0 v *)
       let sizeof_peer_info = 4
 
       type exec_params = {
@@ -29,41 +34,41 @@ module Qrexec = struct
         connect_port : int32;
         (* rest of message is command line *)
       }
-      let get_exec_params_connect_domain h = Bytes.get_int32_le h 0
-      let set_exec_params_connect_domain h v = Bytes.set_int32_le h 0 v
-      let get_exec_params_connect_port h = Bytes.get_int32_le h 4
-      let set_exec_params_connect_port h v = Bytes.set_int32_le h 4 v
+      let get_exec_params_connect_domain h = String.get_int32_le h 0
+      (* let set_exec_params_connect_domain h v = Bytes.set_int32_le h 0 v *)
+      let get_exec_params_connect_port h = String.get_int32_le h 4
+      (* let set_exec_params_connect_port h v = Bytes.set_int32_le h 4 v *)
       let sizeof_exec_params = 8
 
       type exit_status = {
         return_code : int32;
       }
-      let get_exit_status_return_code h = Bytes.get_int32_le h 0
-      let set_exit_status_return_code h v = Bytes.set_int32_le h 0 v
+      let get_exit_status_return_code h = String.get_int32_le h 0
+      (* let set_exit_status_return_code h v = Bytes.set_int32_le h 0 v *)
       let sizeof_exit_status = 4
 
       type trigger_service_params = {
-        service_name : Bytes.t; (* [@len 64]; *)
-        target_domain : Bytes.t; (* [@len 32]; *)
-        request_id : Bytes.t; (* [@len 32] *)
+        service_name : String.t; (* [@len 64]; *)
+        target_domain : String.t; (* [@len 32]; *)
+        request_id : String.t; (* [@len 32] *)
       }
-      let get_trigger_service_params_service_name h = Bytes.sub h 0 64
-      let set_trigger_service_params_service_name v ofs h = Bytes.blit_string v 0 h ofs 64
-      let get_trigger_service_params_target_domain h = Bytes.sub h 64 32
-      let set_trigger_service_params_target_domain v ofs h = Bytes.blit_string v 0 h (64+ofs) 32
-      let get_trigger_service_params_request_id h = Bytes.sub h 96 32
-      let set_trigger_service_params_request_id v ofs h = Bytes.blit_string v 0 h (96+ofs) 32
+      let get_trigger_service_params_service_name h = String.sub h 0 64
+      (* let set_trigger_service_params_service_name v ofs h = Bytes.blit_string v 0 h ofs 64 *)
+      let get_trigger_service_params_target_domain h = String.sub h 64 32
+      (* let set_trigger_service_params_target_domain v ofs h = Bytes.blit_string v 0 h (64+ofs) 32 *)
+      let get_trigger_service_params_request_id h = String.sub h 96 32
+      (* let set_trigger_service_params_request_id v ofs h = Bytes.blit_string v 0 h (96+ofs) 32 *)
       let sizeof_trigger_service_params = 64+32+32
 
       type trigger_service_params3 = {
-        target_domain : Bytes.t; (* [@len 64]; *)
-        request_id : Bytes.t; (* [@len 32] *)
+        target_domain : String.t; (* [@len 64]; *)
+        request_id : String.t; (* [@len 32] *)
         (* rest of message is service name *)
       }
-      let get_trigger_service_params3_target_domain h = Bytes.sub h 0 64
-      let set_trigger_service_params3_target_domain v ofs h = Bytes.blit_string v 0 h ofs 64
-      let get_trigger_service_params3_request_id h = Bytes.sub h 64 32
-      let set_trigger_service_params3_request_id v ofs h = Bytes.blit_string v 0 h (64+ofs) 32
+      let get_trigger_service_params3_target_domain h = String.sub h 0 64
+      (* let set_trigger_service_params3_target_domain v ofs h = Bytes.blit_string v 0 h ofs 64 *)
+      let get_trigger_service_params3_request_id h = String.sub h 64 32
+      (* let set_trigger_service_params3_request_id v ofs h = Bytes.blit_string v 0 h (64+ofs) 32 *)
       let sizeof_trigger_service_params3 = 64+32
     
   type msg_type =
@@ -155,8 +160,8 @@ module GUI = struct
       type gui_protocol_version = {
         version : int32;
       }
-      let get_gui_protocol_version_version h = Bytes.get_int32_le h 0
-      let set_gui_protocol_version_version h v = Bytes.set_int32_le h 0 v
+      (* let get_gui_protocol_version_version h = Bytes.get_int32_le h 0 *)
+      (* let set_gui_protocol_version_version h v = Bytes.set_int32_le h 0 v *)
       let sizeof_gui_protocol_version = 4
  
 
@@ -166,12 +171,12 @@ module GUI = struct
         window : int32;
         untrusted_len : int32;
       }
-      let get_msg_header_ty h = Bytes.get_int32_le h 0
-      let set_msg_header_ty h v = Bytes.set_int32_le h 0 v
-      let get_msg_header_window h = Bytes.get_int32_le h 4
-      let set_msg_header_window h v = Bytes.set_int32_le h 4 v
-      let get_msg_header_untrusted_len h = Bytes.get_int32_le h 8
-      let set_msg_header_untrusted_len h v = Bytes.set_int32_le h 8 v
+      let get_msg_header_ty h = String.get_int32_le h 0
+      (* let set._msg_header_ty h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_header_window h = String.get_int32_le h 4
+      (* let set_msg_header_window h v = Bytes.set_int32_le h 4 v *)
+      let get_msg_header_untrusted_len h = String.get_int32_le h 8
+      (* let set_msg_header_untrusted_len h v = Bytes.set_int32_le h 8 v *)
       let sizeof_msg_header = 12
 
   (** VM -> Dom0, Dom0 -> VM *)
@@ -179,10 +184,10 @@ module GUI = struct
         override_redirect : int32;
         transient_for     : int32;
       }
-      let get_msg_map_info_override_redirect h = Bytes.get_int32_le h 0
-      let set_msg_map_info_override_redirect h v = Bytes.set_int32_le h 0 v
-      let get_msg_map_info_transient_for h = Bytes.get_int32_le h 4
-      let set_msg_map_info_transient_for h v = Bytes.set_int32_le h 4 v
+      let get_msg_map_info_override_redirect h = String.get_int32_le h 0
+      (* let set_msg_map_info_override_redirect h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_map_info_transient_for h = String.get_int32_le h 4
+      (* let set_msg_map_info_transient_for h v = Bytes.set_int32_le h 4 v *)
       let sizeof_msg_map_info = 8
 
   (** Dom0 -> VM, dom0 wants us to reply with a MSG_CLIPBOARD_DATA *)
@@ -195,10 +200,10 @@ module GUI = struct
       len : int32;
       (* followed by a uint8 array of size len *)
     }
-      let get_msg_clipboard_data_window_id h = Bytes.get_int32_be h 0
-      let set_msg_clipboard_data_window_id h v = Bytes.set_int32_be h 0 v
-      let get_msg_clipboard_data_len h = Bytes.get_int32_le h 4
-      let set_msg_clipboard_data_len h v = Bytes.set_int32_le h 4 v
+      let get_msg_clipboard_data_window_id h = String.get_int32_be h 0
+      (* let set_msg_clipboard_data_window_id h v = Bytes.set_int32_be h 0 v *)
+      let get_msg_clipboard_data_len h = String.get_int32_le h 4
+      (* let set_msg_clipboard_data_len h v = Bytes.set_int32_le h 4 v *)
       let sizeof_msg_clipboard_data = 8
 
   (** VM -> Dom0 *)
@@ -210,18 +215,18 @@ module GUI = struct
         parent : int32;
         override_redirect : int32;
       }
-      let get_msg_create_x h = Bytes.get_int32_le h 0
-      let set_msg_create_x h v = Bytes.set_int32_le h 0 v
-      let get_msg_create_y h = Bytes.get_int32_le h 4
-      let set_msg_create_y h v = Bytes.set_int32_le h 4 v
-      let get_msg_create_width h = Bytes.get_int32_le h 8
-      let set_msg_create_width h v = Bytes.set_int32_le h 8 v
-      let get_msg_create_height h = Bytes.get_int32_le h 12
-      let set_msg_create_height h v = Bytes.set_int32_le h 12 v
-      let get_msg_create_parent h = Bytes.get_int32_le h 16
-      let set_msg_create_parent h v = Bytes.set_int32_le h 16 v
-      let get_msg_create_override_redirect h = Bytes.get_int32_le h 20
-      let set_msg_create_override_redirect h v = Bytes.set_int32_le h 20 v
+      let get_msg_create_x h = String.get_int32_le h 0
+      (* let set_msg_create_x h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_create_y h = String.get_int32_le h 4
+      (* let set_msg_create_y h v = Bytes.set_int32_le h 4 v *)
+      let get_msg_create_width h = String.get_int32_le h 8
+      (* let set_msg_create_width h v = Bytes.set_int32_le h 8 v *)
+      let get_msg_create_height h = String.get_int32_le h 12
+      (* let set_msg_create_height h v = Bytes.set_int32_le h 12 v *)
+      let get_msg_create_parent h = String.get_int32_le h 16
+      (* let set_msg_create_parent h v = Bytes.set_int32_le h 16 v *)
+      let get_msg_create_override_redirect h = String.get_int32_le h 20
+      (* let set_msg_create_override_redirect h v = Bytes.set_int32_le h 20 v *)
       let sizeof_msg_create = 24
 
   type msg_keypress_t =
@@ -235,6 +240,7 @@ module GUI = struct
 
   (** Dom0 -> VM *)
   (* https://github.com/drinkcat/chroagh/commit/1d38c2e2422f97b6bf55580c9efc027ecf9f2721 *)
+(*
       type msg_keypress = {
         ty    : int32;
         x     : int32;
@@ -242,16 +248,17 @@ module GUI = struct
         state : int32; (** 1:down, 0:up *)
         keycode : int32;
       }
-      let get_msg_keypress_ty h = Bytes.get_int32_le h 0
-      let set_msg_keypress_ty h v = Bytes.set_int32_le h 0 v
-      let get_msg_keypress_x h = Bytes.get_int32_le h 4
-      let set_msg_keypress_x h v = Bytes.set_int32_le h 4 v
-      let get_msg_keypress_y h = Bytes.get_int32_le h 8
-      let set_msg_keypress_y h v = Bytes.set_int32_le h 8 v
-      let get_msg_keypress_state h = Bytes.get_int32_le h 12
-      let set_msg_keypress_state h v = Bytes.set_int32_le h 12 v
-      let get_msg_keypress_keycode h = Bytes.get_int32_le h 16
-      let set_msg_keypress_keycode h v = Bytes.set_int32_le h 16 v
+*)
+      let get_msg_keypress_ty h = String.get_int32_le h 0
+      (* let set_msg_keypress_ty h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_keypress_x h = String.get_int32_le h 4
+      (* let set_msg_keypress_x h v = Bytes.set_int32_le h 4 v *)
+      let get_msg_keypress_y h = String.get_int32_le h 8
+      (* let set_msg_keypress_y h v = Bytes.set_int32_le h 8 v *)
+      let get_msg_keypress_state h = String.get_int32_le h 12
+      (* let set_msg_keypress_state h v = Bytes.set_int32_le h 12 v *)
+      let get_msg_keypress_keycode h = String.get_int32_le h 16
+      (* let set_msg_keypress_keycode h v = Bytes.set_int32_le h 16 v *)
       let sizeof_msg_keypress = 20
 
 
@@ -263,6 +270,7 @@ module GUI = struct
     button: int32 ;
   }
 
+(*
   (** Dom0 -> VM, TODO seems to be mouse buttons? *)
    type msg_button = {
      ty : int32;
@@ -271,16 +279,17 @@ module GUI = struct
      state : int32;
      button : int32; (* TODO *)
    }
-   let get_msg_button_ty h = Bytes.get_int32_le h 0
-   let set_msg_button_ty h v = Bytes.set_int32_le h 0 v
-   let get_msg_button_x h = Bytes.get_int32_le h 4
-   let set_msg_button_x h v = Bytes.set_int32_le h 4 v
-   let get_msg_button_y h = Bytes.get_int32_le h 8
-   let set_msg_button_y h v = Bytes.set_int32_le h 8 v
-   let get_msg_button_state h = Bytes.get_int32_le h 12
-   let set_msg_button_state h v = Bytes.set_int32_le h 12 v
-   let get_msg_button_button h = Bytes.get_int32_le h 16
-   let set_msg_button_button h v = Bytes.set_int32_le h 16 v
+*)
+   let get_msg_button_ty h = String.get_int32_le h 0
+   (* let set_msg_button_ty h v = Bytes.set_int32_le h 0 v *)
+   let get_msg_button_x h = String.get_int32_le h 4
+   (* let set_msg_button_x h v = Bytes.set_int32_le h 4 v *)
+   let get_msg_button_y h = String.get_int32_le h 8
+   (* let set_msg_button_y h v = Bytes.set_int32_le h 8 v *)
+   let get_msg_button_state h = String.get_int32_le h 12
+   (* let set_msg_button_state h v = Bytes.set_int32_le h 12 v *)
+   let get_msg_button_button h = String.get_int32_le h 16
+   (* let set_msg_button_button h v = Bytes.set_int32_le h 16 v *)
    let sizeof_msg_button = 20
 
   let decode_msg_button b: msg_button_t option =
@@ -299,29 +308,18 @@ module GUI = struct
     is_hint : int;
   }
 
-  (** Dom0 -> VM, mouse / cursor motion event *)
-      type msg_motion = {
-        x       : int32;
-        y       : int32;
-        state   : int32;
-        is_hint : int32;
-      }
-      let get_msg_motion_x h = Bytes.get_int32_le h 0
-      let set_msg_motion_x h v = Bytes.set_int32_le h 0 v
-      let get_msg_motion_y h = Bytes.get_int32_le h 4
-      let set_msg_motion_y h v = Bytes.set_int32_le h 4 v
-      let get_msg_motion_state h = Bytes.get_int32_le h 8
-      let set_msg_motion_state h v = Bytes.set_int32_le h 8 v
-      let get_msg_motion_is_hint h = Bytes.get_int32_le h 12
-      let set_msg_motion_is_hint h v = Bytes.set_int32_le h 12 v
+      let get_msg_motion_x h = String.get_int32_le h 0
+      let get_msg_motion_y h = String.get_int32_le h 4
+      let get_msg_motion_state h = String.get_int32_le h 8
+      let get_msg_motion_is_hint h = String.get_int32_le h 12
       let sizeof_msg_motion = 16
 
-  let decode_msg_motion cs : msg_motion_t option = (*TODO catch exceptions *)
-  let i32 = fun f -> (f cs |> Int32.to_int) in
+  let decode_msg_motion str : msg_motion_t option = (*TODO catch exceptions *)
+  let i32 = fun f -> (f str |> Int32.to_int) in
   Some ({
       x = i32 get_msg_motion_x
    ;  y = i32 get_msg_motion_y
-   ;  state  = get_msg_motion_state cs
+   ;  state  = get_msg_motion_state str
    ; is_hint = i32 get_msg_motion_is_hint
    } : msg_motion_t)
 
@@ -336,6 +334,7 @@ module GUI = struct
     focus  : int32;
   }
 
+(*
   (** Dom0 -> VM, seems to fire when the mouse is moved over a window border *)
    type msg_crossing = {
      ty : int32;
@@ -346,54 +345,37 @@ module GUI = struct
      detail : int32;
      focus  : int32;
    }
-   let get_msg_crossing_ty h = Bytes.get_int32_le h 0
-   let set_msg_crossing_ty h v = Bytes.set_int32_le h 0 v
-   let get_msg_crossing_x h = Bytes.get_int32_le h 4
-   let set_msg_crossing_x h v = Bytes.set_int32_le h 4 v
-   let get_msg_crossing_y h = Bytes.get_int32_le h 8
-   let set_msg_crossing_y h v = Bytes.set_int32_le h 8 v
-   let get_msg_crossing_state h = Bytes.get_int32_le h 12
-   let set_msg_crossing_state h v = Bytes.set_int32_le h 12 v
-   let get_msg_crossing_mode h = Bytes.get_int32_le h 16
-   let set_msg_crossing_mode h v = Bytes.set_int32_le h 16 v
-   let get_msg_crossing_detail h = Bytes.get_int32_le h 20
-   let set_msg_crossing_detail h v = Bytes.set_int32_le h 20 v
-   let get_msg_crossing_focus h = Bytes.get_int32_le h 24
-   let set_msg_crossing_focus h v = Bytes.set_int32_le h 24 v
+*)
+   let get_msg_crossing_ty h = String.get_int32_le h 0
+   (* let set_msg_crossing_ty h v = Bytes.set_int32_le h 0 v *)
+   let get_msg_crossing_x h = String.get_int32_le h 4
+   (* let set_msg_crossing_x h v = Bytes.set_int32_le h 4 v *)
+   let get_msg_crossing_y h = String.get_int32_le h 8
+   (* let set_msg_crossing_y h v = Bytes.set_int32_le h 8 v *)
+   let get_msg_crossing_state h = String.get_int32_le h 12
+   (* let set_msg_crossing_state h v = Bytes.set_int32_le h 12 v *)
+   let get_msg_crossing_mode h = String.get_int32_le h 16
+   (* let set_msg_crossing_mode h v = Bytes.set_int32_le h 16 v *)
+   let get_msg_crossing_detail h = String.get_int32_le h 20
+   (* let set_msg_crossing_detail h v = Bytes.set_int32_le h 20 v *)
+   let get_msg_crossing_focus h = String.get_int32_le h 24
+   (* let set_msg_crossing_focus h v = Bytes.set_int32_le h 24 v *)
    let sizeof_msg_crossing = 28
 
-  let decode_msg_crossing cs  : msg_crossing_t option =
+  let decode_msg_crossing str  : msg_crossing_t option =
      (*TODO catch exceptions *)
-    Some ({ ty = get_msg_crossing_ty cs
-          ;  x = get_msg_crossing_x  cs
-          ;  y = get_msg_crossing_y  cs
-          ;  state = get_msg_crossing_state  cs
-          ;   mode = get_msg_crossing_mode   cs
-          ; detail = get_msg_crossing_detail cs
-          ;  focus = get_msg_crossing_focus  cs
+    Some ({ ty = get_msg_crossing_ty str
+          ;  x = get_msg_crossing_x  str
+          ;  y = get_msg_crossing_y  str
+          ;  state = get_msg_crossing_state  str
+          ;   mode = get_msg_crossing_mode   str
+          ; detail = get_msg_crossing_detail str
+          ;  focus = get_msg_crossing_focus  str
           } : msg_crossing_t)
 
   (** VM -> Dom0, Dom0 -> VM, note that when you send this you must read the
                           "corrected" MSG_CONFIGURE you get back and use those
                           values instead of your own *)
-      type msg_configure = {
-        x      : int32;
-        y      : int32;
-        width  : int32;
-        height : int32;
-        override_redirect : int32;
-      }
-      let get_msg_configure_x h = Bytes.get_int32_le h 0
-      let set_msg_configure_x h v = Bytes.set_int32_le h 0 v
-      let get_msg_configure_y h = Bytes.get_int32_le h 4
-      let set_msg_configure_y h v = Bytes.set_int32_le h 4 v
-      let get_msg_configure_width h = Bytes.get_int32_le h 8
-      let set_msg_configure_width h v = Bytes.set_int32_le h 8 v
-      let get_msg_configure_height h = Bytes.get_int32_le h 12
-      let set_msg_configure_height h v = Bytes.set_int32_le h 12 v
-      let get_msg_configure_override_redirect h = Bytes.get_int32_le h 16
-      let set_msg_configure_override_redirect h v = Bytes.set_int32_le h 16 v
-      let sizeof_msg_configure = 20
 
   type msg_configure_t = {
     x: int32;
@@ -402,13 +384,32 @@ module GUI = struct
     height: int32;
     override_redirect: int32;
   }
+(*      type msg_configure = {
+        x      : int32;
+        y      : int32;
+        width  : int32;
+        height : int32;
+        override_redirect : int32;
+      }
+*)
+      let get_msg_configure_x h = String.get_int32_le h 0
+      (* let set_msg_configure_x h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_configure_y h = String.get_int32_le h 4
+      (* let set_msg_configure_y h v = Bytes.set_int32_le h 4 v *)
+      let get_msg_configure_width h = String.get_int32_le h 8
+      (* let set_msg_configure_width h v = Bytes.set_int32_le h 8 v *)
+      let get_msg_configure_height h = String.get_int32_le h 12
+      (* let set_msg_configure_height h v = Bytes.set_int32_le h 12 v *)
+      let get_msg_configure_override_redirect h = String.get_int32_le h 16
+      (* let set_msg_configure_override_redirect h v = Bytes.set_int32_le h 16 v *)
+      let sizeof_msg_configure = 20
 
-  let decode_msg_configure cs : msg_configure_t option =
-    Some ({ x = get_msg_configure_x cs ;
-            y = get_msg_configure_y cs ;
-            width = get_msg_configure_width cs ;
-            height = get_msg_configure_height cs ;
-            override_redirect = get_msg_configure_override_redirect cs ;
+  let decode_msg_configure b : msg_configure_t option =
+    Some ({ x = get_msg_configure_x b ;
+            y = get_msg_configure_y b ;
+            width = get_msg_configure_width b ;
+            height = get_msg_configure_height b ;
+            override_redirect = get_msg_configure_override_redirect b ;
           } : msg_configure_t)
 
     (** VM -> Dom0 *)
@@ -418,20 +419,20 @@ module GUI = struct
         width : int32;
         height: int32;
       }
-      let get_msg_shmimage_x h = Bytes.get_int32_le h 0
-      let set_msg_shmimage_x h v = Bytes.set_int32_le h 0 v
-      let get_msg_shmimage_y h = Bytes.get_int32_le h 4
-      let set_msg_shmimage_y h v = Bytes.set_int32_le h 4 v
-      let get_msg_shmimage_width h = Bytes.get_int32_le h 8
-      let set_msg_shmimage_width h v = Bytes.set_int32_le h 8 v
-      let get_msg_shmimage_height h = Bytes.get_int32_le h 12
-      let set_msg_shmimage_height h v = Bytes.set_int32_le h 12 v
+      let get_msg_shmimage_x h = String.get_int32_le h 0
+      (* let set_msg_shmimage_x h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_shmimage_y h = String.get_int32_le h 4
+      (* let set_msg_shmimage_y h v = Bytes.set_int32_le h 4 v *)
+      let get_msg_shmimage_width h = String.get_int32_le h 8
+      (* let set_msg_shmimage_width h v = Bytes.set_int32_le h 8 v *)
+      let get_msg_shmimage_height h = String.get_int32_le h 12
+      (* let set_msg_shmimage_height h v = Bytes.set_int32_le h 12 v *)
       let sizeof_msg_shmimage = 16
 
 
   type msg_focus_t = {
-    mode : Cstruct.uint32;
-    detail: Cstruct.uint32;
+    mode : int32;
+    detail: int32;
   }
 
   (** Dom0 -> VM *)
@@ -440,17 +441,17 @@ module GUI = struct
         mode   : int32;
         detail : int32;
       }
-      let get_msg_focus_ty h = Bytes.get_int32_le h 0
-      let set_msg_focus_ty h v = Bytes.set_int32_le h 0 v
-      let get_msg_focus_mode h = Bytes.get_int32_le h 4
-      let set_msg_focus_mode h v = Bytes.set_int32_le h 4 v
-      let get_msg_focus_detail h = Bytes.get_int32_le h 8
-      let set_msg_focus_detail h v = Bytes.set_int32_le h 8 v
+      let get_msg_focus_ty h = String.get_int32_le h 0
+      (* let set_msg_focus_ty h v = Bytes.set_int32_le h 0 v *)
+      let get_msg_focus_mode h = String.get_int32_le h 4
+      (* let set_msg_focus_mode h v = Bytes.set_int32_le h 4 v *)
+      let get_msg_focus_detail h = String.get_int32_le h 8
+      (* let set_msg_focus_detail h v = Bytes.set_int32_le h 8 v *)
       let sizeof_msg_focus = 12
 
   (* Dom0 -> VM *)
       type msg_execute = {
-        cmd: Bytes.t; (* uint8_t [@len 255]; *)
+        cmd: String.t; (* uint8_t [@len 255]; *)
       }
       (* let get_msg_execute_cmd h = h *)
       (* let set_msg_execute_cmd h v = Bytes.blit v 0 h 0 255 *)
@@ -466,21 +467,21 @@ module GUI = struct
     linear frame buffer. This entry is not used by many drivers, and it should
     only be specified if the driver-specific documentation recommends it. *)
       }
-      let get_xconf_w h = Bytes.get_int32_le h 0
-      let set_xconf_w h v = Bytes.set_int32_le h 0 v
-      let get_xconf_h h = Bytes.get_int32_le h 4
-      let set_xconf_h h v = Bytes.set_int32_le h 4 v
-      let get_xconf_depth h = Bytes.get_int32_le h 8
-      let set_xconf_depth h v = Bytes.set_int32_le h 8 v
-      let get_xconf_mem h = Bytes.get_int32_le h 12
-      let set_xconf_mem h v = Bytes.set_int32_le h 12 v
+      let get_xconf_w h = String.get_int32_le h 0
+      (* let set_xconf_w h v = Bytes.set_int32_le h 0 v *)
+      let get_xconf_h h = String.get_int32_le h 4
+      (* let set_xconf_h h v = Bytes.set_int32_le h 4 v *)
+      let get_xconf_depth h = String.get_int32_le h 8
+      (* let set_xconf_depth h v = Bytes.set_int32_le h 8 v *)
+      let get_xconf_mem h = String.get_int32_le h 12
+      (* let set_xconf_mem h v = Bytes.set_int32_le h 12 v *)
       let sizeof_xconf = 16
 
   (* https://tronche.com/gui/x/icccm/sec-4.html#WM_TRANSIENT_FOR *)
 
   (** VM -> Dom0 *)
       type msg_wmname = {
-        data : Bytes.t (*uint8_t  [@len 128];*) (* title of the window *)
+        data : String.t (*uint8_t  [@len 128];*) (* title of the window *)
       }
       (* let get_msg_wmname_data h = h *)
       (* let set_msg_wmname_data h v = Bytes.blit v 0 h 0 128 *)
@@ -489,7 +490,7 @@ module GUI = struct
   (** Dom0 -> VM *)
       type msg_keymap_notify = {
         (* this is a 256-bit bitmap of which keys should be enabled*)
-        keys : Bytes.t (*uint8_t [@len 32];*)
+        keys : String.t (*uint8_t [@len 32];*)
       }
       (* let get_msg_keymap_notify_keys h = h *)
       (* let set_msg_keymap_notify_keys h v = Bytes.blit v 0 h 0 32 *)
@@ -508,24 +509,24 @@ module GUI = struct
         base_width: int32;
         base_height: int32;
       }
-      let get_msg_window_hints_flags h = Bytes.get_int32_le h 0
-      let set_msg_window_hints_flags h v = Bytes.set_int32_le h 0 v
-      let get_msg_window_hints_min_width h = Bytes.get_int32_le h 4
-      let set_msg_window_hints_min_width h v = Bytes.set_int32_le h 4 v
-      let get_msg_window_hints_min_height h = Bytes.get_int32_le h 8
-      let set_msg_window_hints_min_height h v = Bytes.set_int32_le h 8 v
-      let get_msg_window_hints_max_width h = Bytes.get_int32_le h 12
-      let set_msg_window_hints_max_width h v = Bytes.set_int32_le h 12 v
-      let get_msg_window_hints_max_height h = Bytes.get_int32_le h 16
-      let set_msg_window_hints_max_height h v = Bytes.set_int32_le h 16 v
-      let get_msg_window_hints_width_inc h = Bytes.get_int32_le h 20
-      let set_msg_window_hints_width_inc h v = Bytes.set_int32_le h 20 v
-      let get_msg_window_hints_height_inc h = Bytes.get_int32_le h 24
-      let set_msg_window_hints_height_inc h v = Bytes.set_int32_le h 24 v
-      let get_msg_window_hints_base_width h = Bytes.get_int32_le h 28
-      let set_msg_window_hints_base_width h v = Bytes.set_int32_le h 28 v
-      let get_msg_window_hints_base_height h = Bytes.get_int32_le h 32
-      let set_msg_window_hints_base_height h v = Bytes.set_int32_le h 32 v
+      (* let get_msg_window_hints_flags h = String.get_int32_le h 0 *)
+      (* let set_msg_window_hints_flags h v = Bytes.set_int32_le h 0 v *)
+      (* let get_msg_window_hints_min_width h = String.get_int32_le h 4 *)
+      (* let set_msg_window_hints_min_width h v = Bytes.set_int32_le h 4 v *)
+      (* let get_msg_window_hints_min_height h = String.get_int32_le h 8 *)
+      (* let set_msg_window_hints_min_height h v = Bytes.set_int32_le h 8 v *)
+      (* let get_msg_window_hints_max_width h = String.get_int32_le h 12 *)
+      (* let set_msg_window_hints_max_width h v = Bytes.set_int32_le h 12 v *)
+      (* let get_msg_window_hints_max_height h = String.get_int32_le h 16 *)
+      (* let set_msg_window_hints_max_height h v = Bytes.set_int32_le h 16 v *)
+      (* let get_msg_window_hints_width_inc h = String.get_int32_le h 20 *)
+      (* let set_msg_window_hints_width_inc h v = Bytes.set_int32_le h 20 v *)
+      (* let get_msg_window_hints_height_inc h = String.get_int32_le h 24 *)
+      (* let set_msg_window_hints_height_inc h v = Bytes.set_int32_le h 24 v *)
+      (* let get_msg_window_hints_base_width h = String.get_int32_le h 28 *)
+      (* let set_msg_window_hints_base_width h v = Bytes.set_int32_le h 28 v *)
+      (* let get_msg_window_hints_base_height h = String.get_int32_le h 32 *)
+      (* let set_msg_window_hints_base_height h v = Bytes.set_int32_le h 32 v *)
       let sizeof_msg_window_hints = 36
 
   (** VM -> Dom0, Dom0 -> VM *)
@@ -534,10 +535,10 @@ module GUI = struct
         flags_set   : int32;
         flags_unset : int32;
       }
-      let get_msg_window_flags_flags_set h = Bytes.get_int32_le h 0
-      let set_msg_window_flags_flags_set h v = Bytes.set_int32_le h 0 v
-      let get_msg_window_flags_flags_unset h = Bytes.get_int32_le h 4
-      let set_msg_window_flags_flags_unset h v = Bytes.set_int32_le h 4 v
+      (* let get_msg_window_flags_flags_set h = Bytes.get_int32_le h 0 *)
+      (* let set_msg_window_flags_flags_set h v = Bytes.set_int32_le h 0 v *)
+      (* let get_msg_window_flags_flags_unset h = Bytes.get_int32_le h 4 *)
+      (* let set_msg_window_flags_flags_unset h v = Bytes.set_int32_le h 4 v *)
       let sizeof_msg_window_flags = 8
 
   (** VM -> Dom0 *)
@@ -552,27 +553,27 @@ module GUI = struct
         (* followed by a variable length buffer of pixels:*)
         (* uint32_t mfns[0]; *)
       }
-      let get_shm_cmd_shmid h = Bytes.get_int32_le h 0
-      let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v
-      let get_shm_cmd_width h = Bytes.get_int32_le h 4
-      let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v
-      let get_shm_cmd_height h = Bytes.get_int32_le h 8
-      let set_shm_cmd_height h v = Bytes.set_int32_le h 8 v
-      let get_shm_cmd_bpp h = Bytes.get_int32_le h 12
-      let set_shm_cmd_bpp h v = Bytes.set_int32_le h 12 v
-      let get_shm_cmd_off h = Bytes.get_int32_le h 16
-      let set_shm_cmd_off h v = Bytes.set_int32_le h 16 v
-      let get_shm_cmd_num_mfn h = Bytes.get_int32_le h 20
-      let set_shm_cmd_num_mfn h v = Bytes.set_int32_le h 20 v
-      let get_shm_cmd_domid h = Bytes.get_int32_le h 24
-      let set_shm_cmd_domid h v = Bytes.set_int32_le h 24 v
+      (* let get_shm_cmd_shmid h = Bytes.get_int32_le h 0 *)
+      (* let set_shm_cmd_shmid h v = Bytes.set_int32_le h 0 v *)
+      (* let get_shm_cmd_width h = Bytes.get_int32_le h 4 *)
+      (* let set_shm_cmd_width h v = Bytes.set_int32_le h 4 v *)
+      (* let get_shm_cmd_height h = Bytes.get_int32_le h 8 *)
+      (* let set_shm_cmd_height h v = Bytes.set_int32_le h 8 v *)
+      (* let get_shm_cmd_bpp h = Bytes.get_int32_le h 12 *)
+      (* let set_shm_cmd_bpp h v = Bytes.set_int32_le h 12 v *)
+      (* let get_shm_cmd_off h = Bytes.get_int32_le h 16 *)
+      (* let set_shm_cmd_off h v = Bytes.set_int32_le h 16 v *)
+      (* let get_shm_cmd_num_mfn h = Bytes.get_int32_le h 20 *)
+      (* let set_shm_cmd_num_mfn h v = Bytes.set_int32_le h 20 v *)
+      (* let get_shm_cmd_domid h = Bytes.get_int32_le h 24 *)
+      (* let set_shm_cmd_domid h v = Bytes.set_int32_le h 24 v *)
       let sizeof_shm_cmd = 28
       
 
   (** VM -> Dom0 *)
       type msg_wmclass = {
-        res_class : Bytes.t ; (* uint8_t [@len 64]; *)
-        res_name : Bytes.t ;(* uint8_t [@len 64]; *)
+        res_class : String.t ; (* uint8_t [@len 64]; *)
+        res_name : String.t ;(* uint8_t [@len 64]; *)
       }
       (* let get_msg_wmclass_res_class h = Bytes.sub h 0 64 *)
       (* let set_msg_wmclass_res_class h v = Bytes.blit v 0 h 0 64 *)
@@ -692,90 +693,98 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
    *)
   (* type mfn : uint32_t;  big-endian 24-bit RGB pixel *)
 
-  let make_with_header ~window ~ty body =
+  let make_with_header ~window ~ty ~body_len body =
     (** see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
-    (** TODO consider using Cstruct.add_len *)
-    let body_len = Bytes.length body in
-    let msg = Bytes.create (sizeof_msg_header + body_len) in
-    let()= set_msg_header_ty     msg (msg_type_to_int ty) in
-    let()= set_msg_header_window msg window in
-    let()= set_msg_header_untrusted_len msg Int32.(of_int body_len) in
-    let() = Bytes.blit
-        (* src, srcoff: *) body 0
-        (* dst, dstoff: *) msg sizeof_msg_header
-        (* length: *)      Bytes.(length body)
-    in msg
+    String.concat String.empty [
+      of_int32_le (msg_type_to_int ty) ;
+      of_int32_le window ;
+      of_int32_le body_len ;
+      body
+    ]
 
   let make_msg_mfndump ~window ~width ~height ~mfns =
     (* n.b. must be followed by a MSG_SHMIMAGE to actually repaint *)
     let num_mfn = List.length mfns in
     let offset  = 0x0l in
-    let body = Bytes.create (sizeof_shm_cmd + num_mfn*4) in
-    set_shm_cmd_width   body width;
-    set_shm_cmd_height  body height;
-    set_shm_cmd_bpp     body 24l; (* bits per pixel *)
-    set_shm_cmd_off     body offset;
-    set_shm_cmd_num_mfn body Int32.(of_int num_mfn);
+    (* TODO let n = (4 * width * height + offset
+                     + (XC_PAGE_SIZE-1)) / XC_PAGE_SIZE; *)
+    let cmds = mfns |> List.mapi (fun i -> fun _ ->
+        of_int32_le (Int32.of_int (sizeof_shm_cmd + i*4))) in
+    let body = String.concat String.empty @@ List.append [
+        of_int32_le width ;
+        of_int32_le height ;
+        of_int32_le 24l ; (* bits per pixel *)
+        of_int32_le offset ;
+        of_int32_le @@ Int32.of_int (num_mfn) ;
+    ] cmds in
     (* From https://www.qubes-os.org/doc/gui/
        >> "shmid" and "domid" parameters are just placeholders (to be filled
        >> by *qubes_guid* ), so that we can use the same structure when talking
        >> to shmoverride.so **)
 
-    (* TODO let n = (4 * width * height + offset
-                     + (XC_PAGE_SIZE-1)) / XC_PAGE_SIZE; *)
-    mfns |> List.iteri (fun i ->
-        Bytes.set_int32_le body (sizeof_shm_cmd + i*4));
-    make_with_header ~window ~ty:MSG_MFNDUMP body
+    let body_len = Int32.of_int (sizeof_shm_cmd + num_mfn*4) in
+    make_with_header ~window ~ty:MSG_MFNDUMP ~body_len body
 
   let make_msg_shmimage ~window ~x ~y ~width ~height =
-    let body = Bytes.create (sizeof_msg_shmimage) in
-    set_msg_shmimage_x body x;
-    set_msg_shmimage_y body y;
-    set_msg_shmimage_width body width;
-    set_msg_shmimage_height body height;
-    make_with_header ~window ~ty:MSG_SHMIMAGE body
+    let body = String.concat String.empty [
+        of_int32_le x ;
+        of_int32_le y ;
+        of_int32_le width ;
+        of_int32_le height ;
+    ] in
+    let body_len = Int32.of_int sizeof_msg_shmimage in
+    make_with_header ~window ~ty:MSG_SHMIMAGE ~body_len body
 
   let make_msg_create ~window ~width ~height ~x ~y ~override_redirect ~parent =
-    let body = Bytes.create sizeof_msg_create in
-    set_msg_create_width             body width; (*  w *)
-    set_msg_create_height            body height; (* h *)
-    set_msg_create_x                 body x;
-    set_msg_create_y                 body y;
-    set_msg_create_override_redirect body override_redirect;
-    set_msg_create_parent            body parent;
-    make_with_header ~window ~ty:MSG_CREATE body
+    let body = String.concat String.empty [
+        of_int32_le width ;
+        of_int32_le height ;
+        of_int32_le x ;
+        of_int32_le y ;
+        of_int32_le override_redirect ;
+        of_int32_le parent ;
+    ] in
+    let body_len = Int32.of_int sizeof_msg_create in
+    make_with_header ~window ~ty:MSG_CREATE ~body_len body
 
   let make_msg_map_info ~window ~override_redirect ~transient_for =
-    let body = Bytes.create sizeof_msg_map_info in
-    let()= set_msg_map_info_override_redirect body override_redirect in
-    let()= set_msg_map_info_transient_for body transient_for in
-    make_with_header ~window ~ty:MSG_MAP body
+    let body = String.concat String.empty [
+        of_int32_le override_redirect ;
+        of_int32_le transient_for ;
+    ] in
+    let body_len = Int32.of_int sizeof_msg_map_info in
+    make_with_header ~window ~ty:MSG_MAP ~body_len body
 
   let make_msg_wmname ~window ~wmname =
-    let body = Bytes.create sizeof_msg_wmname in
-    let()= Bytes.blit (Bytes.of_string wmname) 0 body 0
-      (min String.(length wmname) sizeof_msg_wmname) ; (* length *) in
-    make_with_header ~window ~ty:MSG_WMNAME body
+    let body = String.concat String.empty [
+        wmname ;
+        String.make (sizeof_msg_wmname-String.(length wmname)) '\000' ; (* padding to sizeof_msg_wmname *)
+    ] in
+    let body_len = Int32.of_int sizeof_msg_wmname in
+    make_with_header ~window ~ty:MSG_WMNAME ~body_len body
 
   let make_msg_window_hints ~window ~width ~height =
-    let body = Bytes.create sizeof_msg_window_hints in
-    set_msg_window_hints_flags body Int32.(16 lor 32 |> of_int) ;
+    let body = String.concat String.empty [
+        of_int32_le @@ Int32.(16 lor 32 |> of_int) ;
        (*^--  PMinSize | PMaxSize *)
-    set_msg_window_hints_min_width body width;
-    set_msg_window_hints_min_height body height;
-    set_msg_window_hints_max_width body width;
-    set_msg_window_hints_max_height body height;
-    make_with_header ~window ~ty:MSG_WINDOW_HINTS body
+        of_int32_le width ;  (* min width *)
+        of_int32_le height ; (* min height *)
+        of_int32_le width ;  (* max width *)
+        of_int32_le height ; (* max height *)
+    ] in
+    let body_len = Int32.of_int sizeof_msg_window_hints in
+    make_with_header ~window ~ty:MSG_WINDOW_HINTS ~body_len body
 
   let make_msg_configure ~window ~x ~y ~width ~height =
-    let body  = Bytes.create sizeof_msg_configure in
-    set_msg_configure_x body x ;
-    set_msg_configure_y body y ; (* x and y are from qs->window_x and window_y*)
-
-    set_msg_configure_width body width ;
-    set_msg_configure_height body height ;
-    set_msg_configure_override_redirect body 0l ;
-    make_with_header ~window ~ty:MSG_CONFIGURE body
+    let body = String.concat String.empty [
+        of_int32_le x ;
+        of_int32_le y ; (* x and y are from qs->window_x and window_y*)
+        of_int32_le width ;
+        of_int32_le height ;
+        of_int32_le 0l ; (* override_redirect *)
+    ] in
+    let body_len = Int32.of_int sizeof_msg_window_hints in
+    make_with_header ~window ~ty:MSG_CONFIGURE ~body_len body
 
   module Framing = struct
     let header_size = sizeof_msg_header
@@ -853,26 +862,28 @@ module QubesDB = struct
 
       type msg_header = {
         ty        : int;
-        path      : Bytes.t; (* [@len 64]; *)
-        padding   : Bytes.t; (* [@len 3]; *)
+        path      : String.t; (* [@len 64]; *)
+        padding   : String.t; (* [@len 3]; *)
         data_len  : int32;
         (* rest of message is data *)
       }
-      let get_msg_header_ty h = Bytes.get_uint8 h 0
-      let set_msg_header_ty h v = Bytes.set_uint8 h 0 v
-      let get_msg_header_path h = Bytes.sub h 1 64
-      let set_msg_header_path h v = Bytes.blit_string v 0 h 1 (min (String.length v) 64)
-      let get_msg_header_data_len h = Bytes.get_int32_le h 68
-      let set_msg_header_data_len h v = Bytes.set_int32_le h 68 v
+      let get_msg_header_ty h = String.get_uint8 h 0
+      (* let set_msg_header_ty h v = Bytes.set_uint8 h 0 v *)
+      let get_msg_header_path h = String.sub h 1 64
+      (* let set_msg_header_path h v = Bytes.blit_string v 0 h 1 (min (String.length v) 64) *)
+      let get_msg_header_data_len h = String.get_int32_le h 68
+      (* let set_msg_header_data_len h v = Bytes.set_int32_le h 68 v *)
       let sizeof_msg_header = 72
 
 
   let make_msg_header ~ty ~path ~data_len =
-    let msg = Bytes.make sizeof_msg_header '\x00' in
-    set_msg_header_ty msg (qdb_msg_to_int ty);
-    set_msg_header_path msg path;
-    set_msg_header_data_len msg (Int32.of_int data_len);
-    msg
+    assert(String.length path <= 64);
+    String.concat String.empty [
+        String.make 1 (Char.chr (qdb_msg_to_int ty)) ; (* int8 *)
+        path ;
+        String.make (3+64-String.length path) '\000' ; (* padding=3 and max size of path=64 *)
+        of_int32_le (Int32.of_int data_len) ;
+    ]
 
   module Framing = struct
     let header_size = sizeof_msg_header
@@ -893,20 +904,20 @@ module Rpc_filecopy = struct
         mtime_nsec : int32;
       }
       (* followed by filename[namelen] and data[filelen] *)
-      let get_file_header_namelen h = Bytes.get_int32_le h 0
-      let set_file_header_namelen h v = Bytes.set_int32_le h 0 v
-      let get_file_header_mode h = Bytes.get_int32_le h 4
-      let set_file_header_mode h v = Bytes.set_int32_le h 4 v
-      let get_file_header_filelen h = Bytes.get_int64_le h 8
-      let set_file_header_filelen h v = Bytes.set_int64_le h 8 v
-      let get_file_header_atime h = Bytes.get_int32_le h 16
-      let set_file_header_atime h v = Bytes.set_int32_le h 16 v
-      let get_file_header_atime_nsec h = Bytes.get_int32_le h 20
-      let set_file_header_atime_nsec h v = Bytes.set_int32_le h 20 v
-      let get_file_header_mtime h = Bytes.get_int32_le h 24
-      let set_file_header_mtime h v = Bytes.set_int32_le h 24 v
-      let get_file_header_mtime_nsec h = Bytes.get_int32_le h 28
-      let set_file_header_mtime_nsec h v = Bytes.set_int32_le h 28 v
+      (* let get_file_header_namelen h = Bytes.get_int32_le h 0 *)
+      (* let set_file_header_namelen h v = Bytes.set_int32_le h 0 v *)
+      (* let get_file_header_mode h = Bytes.get_int32_le h 4 *)
+      (* let set_file_header_mode h v = Bytes.set_int32_le h 4 v *)
+      (* let get_file_header_filelen h = Bytes.get_int64_le h 8 *)
+      (* let set_file_header_filelen h v = Bytes.set_int64_le h 8 v *)
+      (* let get_file_header_atime h = Bytes.get_int32_le h 16 *)
+      (* let set_file_header_atime h v = Bytes.set_int32_le h 16 v *)
+      (* let get_file_header_atime_nsec h = Bytes.get_int32_le h 20 *)
+      (* let set_file_header_atime_nsec h v = Bytes.set_int32_le h 20 v *)
+      (* let get_file_header_mtime h = Bytes.get_int32_le h 24 *)
+      (* let set_file_header_mtime h v = Bytes.set_int32_le h 24 v *)
+      (* let get_file_header_mtime_nsec h = Bytes.get_int32_le h 28 *)
+      (* let set_file_header_mtime_nsec h v = Bytes.set_int32_le h 28 v *)
       let sizeof_file_header = 32
 
       type result_header = {
@@ -914,28 +925,29 @@ module Rpc_filecopy = struct
         _pad       : int32;
         crc32      : int64;
       }
-      let get_result_header_error_code h = Bytes.get_int32_le h 0
-      let set_result_header_error_code h v = Bytes.set_int32_le h 0 v
+      (* let get_result_header_error_code h = Bytes.get_int32_le h 0 *)
+      (* let set_result_header_error_code h v = Bytes.set_int32_le h 0 v *)
       (* let get_result_header__pad h = Bytes.get_int32_le h 4 *)
       (* let set_result_header__pad h v = Bytes.set_int32_le h 4 v *)
-      let get_result_header_crc32 h = Bytes.get_int64_le h 8
-      let set_result_header_crc32 h v = Bytes.set_int64_le h 8 v
+      (* let get_result_header_crc32 h = Bytes.get_int64_le h 8 *)
+      (* let set_result_header_crc32 h v = Bytes.set_int64_le h 8 v *)
       let sizeof_result_header = 16
 
       type result_header_ext = {
         last_namelen : int32;
         (* TODO char last_name[0]; variable length[last_namelen] *)
       }
-      let get_result_header_ext_last_namelen h = Bytes.get_int32_le h 0
-      let set_result_header_ext_last_namelen h v = Bytes.set_int32_le h 0 v
+      (* let get_result_header_ext_last_namelen h = Bytes.get_int32_le h 0 *)
+      (* let set_result_header_ext_last_namelen h v = Bytes.set_int32_le h 0 v *)
       let sizeof_result_header_ext = 4
 
+(*
   let make_result_header_ext last_filename =
     let namelen = Bytes.length last_filename in
-    let msg = Bytes.create (sizeof_result_header_ext + namelen) in
-    set_result_header_ext_last_namelen msg (Int32.of_int namelen);
-    Bytes.blit (* src  srcoff *) last_filename 0
-               (* dst  dstoff *) msg sizeof_result_header_ext
-               (* len *) namelen ;
-    msg
+    String.concat String.empty [
+        of_int32_le @@ (Int32.of_int namelen) ;
+        last_filename ;
+    ]
+*)
+
 end

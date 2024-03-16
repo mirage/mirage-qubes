@@ -24,7 +24,7 @@ type event =
   | Focus of msg_focus_t
   | Motion of msg_motion_t
   | Clipboard_request
-  | Clipboard_data of Bytes.t
+  | Clipboard_data of String.t
   | Configure of Formats.GUI.msg_configure_t
   | Window_crossing of msg_crossing_t
   | Window_destroy
@@ -37,7 +37,7 @@ let pp_event fmt event =
   | UNIT () -> pf() "UNIT"
   | Button _ -> pf() "Button"
   | Clipboard_request -> pf() "Clipboard_request"
-  | Clipboard_data b -> pf() "Clipboard_data: %S" (Bytes.to_string b)
+  | Clipboard_data str -> pf() "Clipboard_data: %S" str
   | Configure x -> pf() "Configure: @[x=%ld;@ y=%ld;@ width=%ld;@ height=%ld@]"
                      x.x x.y x.width x.height
   | Focus {mode;detail} -> pf() "Focus mode: %ld detail: %ld" mode detail
@@ -75,21 +75,21 @@ let decode_FOCUS buf =
   Focus focus
 
 let decode_MSG_CLOSE buf =
-  Log.warn (fun f -> f "Event: CLOSE: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
+  Log.warn (fun f -> f "Event: CLOSE: %a" (Ohex.pp ()) buf);
   Window_close
 
 let decode_CLIPBOARD_DATA buf =
-  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
+  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" (Ohex.pp ()) buf);
   let len = get_msg_clipboard_data_len buf |> Int32.to_int in
   match
     Int32.compare (get_msg_clipboard_data_len buf) 0l = -1
-    || Bytes.length buf + sizeof_msg_clipboard_data <> len with
+    || String.length buf + sizeof_msg_clipboard_data <> len with
   | true ->
     Logs.warn (fun m -> m "Got invalid CLIPBOARD_DATA msg from dom0");
     UNIT ()
   | false ->
     (* TODO expose the window id of the recipient window *)
-    Clipboard_data (Bytes.sub buf sizeof_msg_clipboard_data len)
+    Clipboard_data (String.sub buf sizeof_msg_clipboard_data len)
 
 let int32_of_window (w : window) : int32 = w.no
 
@@ -100,14 +100,14 @@ let decode_MSG_MOTION buf =
                  m.x m.y m.state m.is_hint);
     Motion m
   | None ->
-    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
+    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" (Ohex.pp ()) buf);
     UNIT ()
 
 let decode_CONFIGURE buf =
   match decode_msg_configure buf with
   | Some m -> Configure m
   | None ->
-    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: %a" (Ohex.pp ()) (Bytes.unsafe_to_string buf));
+    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: %a" (Ohex.pp ()) buf);
     UNIT ()
 
 let recv_event (window:window) =
@@ -151,8 +151,7 @@ let connect ~domid () =
   Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:gui_agent_port () >>= fun qv ->
   (* qubesgui_init_connection *)
-  let version = Bytes.create sizeof_gui_protocol_version in
-  set_gui_protocol_version_version version qubes_gui_protocol_version_linux;
+  let version = Formats.of_int32_le qubes_gui_protocol_version_linux in
   QV.send qv [version] >>= function
   | `Eof -> Lwt.fail_with "End-of-file sending protocol version"
   | `Ok () ->
@@ -198,11 +197,11 @@ let rec listen t () =
                           size msg! msg_header: %a@ Received raw buffer:: %a"
                  (match msg_type_size msg with Some x -> x | None -> -1)
                  msg_len
-                 (Ohex.pp ()) (Bytes.unsafe_to_string msg_header)
-                 (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf)) ;
+                 (Ohex.pp ()) msg_header
+                 (Ohex.pp ()) msg_buf) ;
     UNIT()
   | Some MSG_MAP ->
-    Log.warn (fun f -> f "Event: MAP: %s" (Ohex.encode (Bytes.to_string msg_buf)));
+    Log.warn (fun f -> f "Event: MAP: %s" (Ohex.encode msg_buf));
     UNIT()
   | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> decode_FOCUS msg_buf
@@ -212,25 +211,25 @@ let rec listen t () =
     Clipboard_request
   | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
       | Some event -> Window_crossing event
-      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf))
+      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a" (Ohex.pp ()) msg_buf)
               ; UNIT ()
       end
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
       | Some button_event -> Button button_event
-      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf))
+      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a" (Ohex.pp ()) msg_buf)
         ; UNIT ()
       end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
-    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf));
+    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %a" (Ohex.pp ()) msg_buf);
     UNIT()
   | Some MSG_WINDOW_FLAGS ->
-    Log.warn (fun f -> f "Event: WINDOW_FLAGS: %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf))
+    Log.warn (fun f -> f "Event: WINDOW_FLAGS: %a" (Ohex.pp ()) msg_buf)
       ;
       UNIT ()
   | Some MSG_CONFIGURE ->
-    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf));
+    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a" (Ohex.pp ()) msg_buf);
     (* TODO here we should ACK to Qubes that we accept the new dimensions,
             atm this is the responsibility of the user: *)
     decode_CONFIGURE msg_buf
@@ -247,12 +246,12 @@ let rec listen t () =
     (* Handle messages that are appvm->dom0 and thus dom0 is not supposed
        to send to the VM: *)
     Log.warn (fun f ->
-        f "UNEXPECTED message received. Data: %a" (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf));
+        f "UNEXPECTED message received. Data: %a" (Ohex.pp ()) msg_buf);
         UNIT()
   | None ->
     Log.warn (fun f -> f "Unexpected data with unknown type: [%a] a %a"
-        (Ohex.pp ()) (Bytes.unsafe_to_string msg_header)
-        (Ohex.pp ()) (Bytes.unsafe_to_string msg_buf)) ;
+        (Ohex.pp ()) msg_header
+        (Ohex.pp ()) msg_buf) ;
     UNIT()
   end
   >>= fun () -> listen t ()

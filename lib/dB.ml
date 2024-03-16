@@ -45,8 +45,7 @@ let qubesdb_vchan_port =
   | Ok port -> port
 
 let send t ?(path="") ?(data="") ty =
-  let data = Bytes.of_string data in
-  let hdr = make_msg_header ~ty ~path ~data_len:(Bytes.length data) in
+  let hdr = make_msg_header ~ty ~path ~data_len:(String.length data) in
   QV.send t [hdr; data]
 
 let recv t =
@@ -57,8 +56,8 @@ let recv t =
     | None -> Fmt.failwith "Invalid message type %d" ty
     | Some ty -> ty in
   let path = get_msg_header_path hdr in
-  let path = Bytes.sub path 0 (Bytes.index path '\x00') in
-  Lwt.return (ty, Bytes.to_string path, Bytes.to_string data)
+  let path = String.sub path 0 (String.index path '\x00') in
+  Lwt.return (ty, path, data)
 
 let values_for_key store key =
   KeyMap.filter (fun k _ -> starts_with k (key ^ "/")) store

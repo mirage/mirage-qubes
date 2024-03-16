@@ -40,16 +40,17 @@ let max_data_chunk : Formats.Qrexec.version -> int = function
   | `V3 -> max_data_chunk_v3
 
 let rec send t ~version ~ty data =
-  let ldata = Bytes.length data in
+  let ldata = String.length data in
   let lmin = min (max_data_chunk version) ldata in
-  let hdr = Bytes.create sizeof_msg_header in
-  set_msg_header_ty hdr (int_of_type ty);
-  set_msg_header_len hdr (ldata |> Int32.of_int);
+  let hdr = String.concat String.empty [
+    Formats.of_int32_le (int_of_type ty) ;
+    Formats.of_int32_le (Int32.of_int ldata) ;
+  ] in
   if ldata = lmin
   then QV.send t [hdr; data]
   else
-    let data' = Bytes.sub data lmin (ldata-lmin) in
-    let data = Bytes.sub data 0 lmin in
+    let data = String.sub data 0 lmin in
+    let data' = String.sub data lmin (ldata-lmin) in
     QV.send t [hdr; data] >>= function
       | `Eof -> Lwt.return `Eof
       | `Ok () ->
@@ -63,26 +64,26 @@ let recv t =
 module Flow = struct
   type t = {
     dstream : QV.t;
-    mutable stdin_buf : Bytes.t;
+    mutable stdin_buf : String.t;
     ty : [`Just_exec | `Exec_cmdline];
     version : Formats.Qrexec.version;
   }
 
   let create ~version ~ty dstream =
-    {dstream; stdin_buf = Bytes.empty; ty; version}
+    {dstream; stdin_buf = String.empty; ty; version}
 
   let push ~stream flow buf =
     match flow.ty with
     | `Just_exec -> Lwt.return_unit
     | `Exec_cmdline ->
-    if Bytes.length buf > 0 then
+    if String.length buf > 0 then
       send flow.dstream ~version:flow.version ~ty:stream buf >>= or_fail
     else
       Lwt.return_unit
 
   let pushf ~stream flow fmt =
     fmt |> Printf.ksprintf @@ fun s ->
-      push ~stream flow (Bytes.of_string (s ^ "\n"))
+      push ~stream flow (s ^ "\n")
 
   let write = push ~stream:`Data_stdout
   let ewrite = push ~stream:`Data_stderr
@@ -95,7 +96,7 @@ module Flow = struct
     | `Just_exec -> Lwt.return `Eof
     | `Exec_cmdline ->
     recv flow.dstream >>!= function
-    | `Data_stdin, empty when Bytes.length empty = 0 -> Lwt.return `Eof
+    | `Data_stdin, empty when String.length empty = 0 -> Lwt.return `Eof
     | `Data_stdin, data -> Lwt.return (`Ok data)
     | ty, _ ->
       Log.err (fun f -> f "Unknown message type %ld received" (int_of_type ty));
@@ -103,33 +104,34 @@ module Flow = struct
       Lwt.return `Eof
 
   let read flow =
-    if Bytes.length flow.stdin_buf > 0 then (
+    if String.length flow.stdin_buf > 0 then (
       let retval = flow.stdin_buf in
-      flow.stdin_buf <- Bytes.empty;
+      flow.stdin_buf <- String.empty;
       Lwt.return (`Ok retval)
     ) else read_raw flow
 
   let rec read_line flow =
-    let buf = Bytes.to_string flow.stdin_buf in
+    let buf = flow.stdin_buf in
     let i =
       try Some (String.index buf '\n')
       with Not_found -> None in
     match i with
     | Some i ->
         let retval = String.sub buf 0 i in
-        Bytes.blit flow.stdin_buf 0 flow.stdin_buf (i + 1) i;
+        flow.stdin_buf <- String.sub flow.stdin_buf i (String.length buf-i);
         Lwt.return (`Ok retval)
     | None ->
         read_raw flow >>!= fun buf ->
-        flow.stdin_buf <- Bytes.cat flow.stdin_buf buf;
+        flow.stdin_buf <- flow.stdin_buf ^ buf;
         read_line flow
 
   let close flow return_code =
-    let msg = Bytes.create sizeof_exit_status in
-    set_exit_status_return_code msg (Int32.of_int return_code);
+    let msg = String.concat String.empty [
+        Formats.of_int32_le (Int32.of_int return_code) ;
+    ] in
     Lwt.finalize
       (fun () ->
-        send flow.dstream ~version:flow.version ~ty:`Data_stdout (Bytes.empty) >>!= fun () ->
+        send flow.dstream ~version:flow.version ~ty:`Data_stdout (String.empty) >>!= fun () ->
         send flow.dstream ~version:flow.version ~ty:`Data_exit_code msg >>!= fun () ->
         Lwt.return (`Ok ())
       )
@@ -139,28 +141,28 @@ end
 module Client_flow = struct
   type t = {
     dstream : QV.t;
-    mutable stdout_buf : Bytes.t;
-    mutable stderr_buf : Bytes.t;
+    mutable stdout_buf : String.t;
+    mutable stderr_buf : String.t;
     version : Formats.Qrexec.version;
   }
 
   let create ~version dstream =
-    { dstream; stdout_buf = Bytes.empty;
-      stderr_buf = Bytes.empty; version }
+    { dstream; stdout_buf = String.empty;
+      stderr_buf = String.empty; version }
 
   let write t data = send ~version:t.version ~ty:`Data_stdin t.dstream data
 
   let writef t fmt =
     fmt |> Printf.ksprintf @@ fun s ->
-    send ~version:t.version ~ty:`Data_stdin t.dstream (Bytes.of_string s)
+    send ~version:t.version ~ty:`Data_stdin t.dstream s
 
   let next_msg t =
     recv t.dstream >>= function
     | `Ok (`Data_stdout, data) ->
-      t.stdout_buf <- Bytes.cat t.stdout_buf data;
+      t.stdout_buf <- t.stdout_buf ^ data;
       Lwt.return (`Ok t)
     | `Ok (`Data_stderr, data) ->
-      t.stderr_buf <- Bytes.cat t.stderr_buf data;
+      t.stderr_buf <- t.stderr_buf ^ data;
       Lwt.return (`Ok t)
     | `Ok (`Data_exit_code, data) ->
       Lwt.return (`Exit_code (Formats.Qrexec.get_exit_status_return_code data))
@@ -177,16 +179,16 @@ module Client_flow = struct
       | `Ok t ->
         let drain_stdout () =
           let output = t.stdout_buf in
-          t.stdout_buf <- Bytes.empty;
+          t.stdout_buf <- String.empty;
           Lwt.return (`Stdout output)
         and drain_stderr () =
           let output = t.stderr_buf in
-          t.stderr_buf <- Bytes.empty;
+          t.stderr_buf <- String.empty;
           Lwt.return (`Stderr output)
         in
-        if Bytes.length t.stdout_buf > 0
+        if String.length t.stdout_buf > 0
         then drain_stdout ()
-        else if Bytes.length t.stderr_buf > 0
+        else if String.length t.stderr_buf > 0
         then drain_stderr ()
         else next_msg t >>= aux
     in
@@ -212,8 +214,9 @@ type handler = user:string -> string -> Flow.t -> int Lwt.t
 
 let send_hello t =
   let version = `V3 in
-  let hello = Bytes.create sizeof_peer_info in
-  set_peer_info_version hello (int_of_version version);
+  let hello = String.concat String.empty [
+    Formats.of_int32_le (int_of_version version) ;
+  ] in
   send t ~version ~ty:`Hello hello >>= function
   | `Eof -> Fmt.failwith "End-of-file sending msg_hello"
   | `Ok () -> Lwt.return_unit
@@ -294,8 +297,8 @@ let exec t ~ty ~handler msg =
   Lwt.async (fun () ->
     let domid = get_exec_params_connect_domain msg |> Int32.to_int in
     let port = get_exec_params_connect_port msg |> port_of_int in
-    let len = Bytes.length msg in
-    let cmdline = Bytes.sub_string msg sizeof_exec_params (len - sizeof_exec_params) in
+    let len = String.length msg in
+    let cmdline = String.sub msg sizeof_exec_params (len - sizeof_exec_params) in
     Log.debug (fun f -> f "Execute %S" cmdline);
     Lwt.finalize
       (fun () ->
@@ -307,7 +310,7 @@ let exec t ~ty ~handler msg =
         )
       )
       (fun () ->
-        let reply = Bytes.sub msg 0 sizeof_exec_params in
+        let reply = String.sub msg 0 sizeof_exec_params in
         send t.t ~version:t.version ~ty:`Connection_terminated reply >|= function
         | `Ok () | `Eof -> ()
       )
@@ -316,7 +319,7 @@ let exec t ~ty ~handler msg =
 let start_connection params clients =
   let domid = Formats.Qrexec.get_exec_params_connect_domain params in
   let port = Formats.Qrexec.get_exec_params_connect_port params in
-  let request_id = Bytes.to_string @@ Bytes.sub params sizeof_exec_params (Bytes.length params) in
+  let request_id = String.sub params sizeof_exec_params (String.length params) in
   Log.debug (fun f -> f "service_connect message received: domain %lu, port %lu, request_id %S" domid port request_id);
   Log.debug (fun f -> f "Connecting...");
   match Vchan.Port.of_string (Int32.to_string port) with
@@ -335,8 +338,7 @@ let start_connection params clients =
     send_hello remote >>= fun () ->
     recv_hello remote >>= fun peer_version ->
     let version = negotiate_version peer_version in
-    Log.debug (fun f -> f "server connected on port %s, using protocol vers
-ion %ld" (Vchan.Port.to_string port) (int_of_version version));
+    Log.debug (fun f -> f "server connected on port %s, using protocol version %ld" (Vchan.Port.to_string port) (int_of_version version));
     match Hashtbl.find_opt clients request_id with
     | Some client ->
       Hashtbl.remove clients request_id;
@@ -351,7 +353,7 @@ let listen t handler =
     | `Ok (`Just_exec | `Exec_cmdline as ty, data) ->
         exec t ~ty ~handler data; loop ()
     | `Ok (`Service_refused, data) ->
-      let request_id = Bytes.to_string data in
+      let request_id = data in
       Log.debug (fun f -> f "Service refused for %S" request_id);
       begin match Hashtbl.find_opt t.clients request_id with
         | Some client ->
@@ -383,21 +385,30 @@ let service_params ~version ~service ~vm ~request_id =
   match version with
   | `V2 ->
     let service_len = 64
-    and target_domain_len = 32 in
+    and target_domain_len = 32
+    and request_id_len = 32 in
     if String.length service >= service_len ||
-       String.length vm >= target_domain_len
-    then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service arguments too long");
-    let buf = Bytes.create sizeof_trigger_service_params in
-    set_trigger_service_params_service_name (zero_pad service service_len) 0 buf;
-    set_trigger_service_params_target_domain (zero_pad vm target_domain_len) 0 buf;
-    set_trigger_service_params_request_id request_id 0 buf;
+       String.length vm >= target_domain_len ||
+       String.length request_id >= request_id_len
+    then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service or request_id arguments too long");
+    let buf = String.concat String.empty [
+        (zero_pad service service_len) ;
+        (zero_pad vm target_domain_len) ;
+        (zero_pad request_id request_id_len);
+        (* Not sure why we don't also add request_id as in `V3? *)
+    ] in
     `Trigger_service, buf
   | `V3 ->
-    let target_domain_len = 64 in
-    let buf = Bytes.create (sizeof_trigger_service_params3 + String.length request_id) in
-    set_trigger_service_params3_target_domain (zero_pad vm target_domain_len) 0 buf;
-    set_trigger_service_params3_request_id request_id 0 buf;
-    Bytes.blit (Bytes.of_string request_id) 0 buf sizeof_trigger_service_params3 (String.length request_id);
+    let target_domain_len = 64
+    and request_id_len = 32 in
+    if String.length vm >= target_domain_len ||
+       String.length request_id >= request_id_len
+    then raise (Invalid_argument "Qubes.RExec.qrexec: vm or request_id arguments too long");
+    let buf = String.concat String.empty [
+        (zero_pad vm target_domain_len);
+        (zero_pad request_id request_id_len);
+        request_id;
+    ] in
     `Trigger_service3, buf
 
 let qrexec t ~vm ~service client =
@@ -419,7 +430,6 @@ let qrexec t ~vm ~service client =
     Lwt.return `Ok
 
 let connect ~domid () =
-  Log.info (fun f -> f "waiting for client...");
   QV.server ~domid ~port:vchan_base_port () >>= fun t ->
   send_hello t >>= fun () ->
   recv_hello t >>= fun peer_version ->
