@@ -201,7 +201,7 @@ let rec listen t () =
                  (Ohex.pp ()) msg_buf) ;
     UNIT()
   | Some MSG_MAP ->
-    Log.warn (fun f -> f "Event: MAP: %s" (Ohex.encode msg_buf));
+    Log.warn (fun f -> f "Event: MAP: %a" (Ohex.pp ()) msg_buf);
     UNIT()
   | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> decode_FOCUS msg_buf

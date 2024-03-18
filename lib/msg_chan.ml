@@ -54,7 +54,7 @@ module Make (F : Formats.FRAMING) = struct
     Lwt_mutex.with_lock t.read_lock @@ fun () ->
     if String.length t.buffer > 0 then (
       let data = t.buffer in
-      t.buffer <- String.empty;
+      t.buffer <- "";
       return (`Ok data)
     ) else (
       Vchan_xen.read t.vchan >|= unwrap_read >>!= fun result ->
@@ -75,7 +75,7 @@ module Make (F : Formats.FRAMING) = struct
     Vchan_xen.server ~domid ~port () >|= fun vchan -> {
       vchan;
       domid;
-      buffer = String.empty;
+      buffer = "";
       read_lock = Lwt_mutex.create ();
       write_lock = Lwt_mutex.create ();
     }
@@ -84,7 +84,7 @@ module Make (F : Formats.FRAMING) = struct
     Vchan_xen.client ~domid ~port () >|= fun vchan -> {
       vchan;
       domid;
-      buffer = String.empty;
+      buffer = "";
       read_lock = Lwt_mutex.create ();
       write_lock = Lwt_mutex.create ();
     }

@@ -42,15 +42,15 @@ let max_data_chunk : Formats.Qrexec.version -> int = function
 let rec send t ~version ~ty data =
   let ldata = String.length data in
   let lmin = min (max_data_chunk version) ldata in
-  let hdr = String.concat String.empty [
-    Formats.of_int32_le (int_of_type ty) ;
-    Formats.of_int32_le (Int32.of_int ldata) ;
-  ] in
+  let hdr =
+    Formats.of_int32_le (int_of_type ty) ^
+    Formats.of_int32_le (Int32.of_int ldata)
+  in
   if ldata = lmin
   then QV.send t [hdr; data]
   else
-    let data = String.sub data 0 lmin in
     let data' = String.sub data lmin (ldata-lmin) in
+    let data = String.sub data 0 lmin in
     QV.send t [hdr; data] >>= function
       | `Eof -> Lwt.return `Eof
       | `Ok () ->
@@ -70,7 +70,7 @@ module Flow = struct
   }
 
   let create ~version ~ty dstream =
-    {dstream; stdin_buf = String.empty; ty; version}
+    {dstream; stdin_buf = ""; ty; version}
 
   let push ~stream flow buf =
     match flow.ty with
@@ -106,7 +106,7 @@ module Flow = struct
   let read flow =
     if String.length flow.stdin_buf > 0 then (
       let retval = flow.stdin_buf in
-      flow.stdin_buf <- String.empty;
+      flow.stdin_buf <- "";
       Lwt.return (`Ok retval)
     ) else read_raw flow
 
@@ -126,12 +126,10 @@ module Flow = struct
         read_line flow
 
   let close flow return_code =
-    let msg = String.concat String.empty [
-        Formats.of_int32_le (Int32.of_int return_code) ;
-    ] in
+    let msg = Formats.of_int32_le (Int32.of_int return_code) in
     Lwt.finalize
       (fun () ->
-        send flow.dstream ~version:flow.version ~ty:`Data_stdout (String.empty) >>!= fun () ->
+        send flow.dstream ~version:flow.version ~ty:`Data_stdout ("") >>!= fun () ->
         send flow.dstream ~version:flow.version ~ty:`Data_exit_code msg >>!= fun () ->
         Lwt.return (`Ok ())
       )
@@ -147,8 +145,8 @@ module Client_flow = struct
   }
 
   let create ~version dstream =
-    { dstream; stdout_buf = String.empty;
-      stderr_buf = String.empty; version }
+    { dstream; stdout_buf = "";
+      stderr_buf = ""; version }
 
   let write t data = send ~version:t.version ~ty:`Data_stdin t.dstream data
 
@@ -179,11 +177,11 @@ module Client_flow = struct
       | `Ok t ->
         let drain_stdout () =
           let output = t.stdout_buf in
-          t.stdout_buf <- String.empty;
+          t.stdout_buf <- "";
           Lwt.return (`Stdout output)
         and drain_stderr () =
           let output = t.stderr_buf in
-          t.stderr_buf <- String.empty;
+          t.stderr_buf <- "";
           Lwt.return (`Stderr output)
         in
         if String.length t.stdout_buf > 0
@@ -214,9 +212,7 @@ type handler = user:string -> string -> Flow.t -> int Lwt.t
 
 let send_hello t =
   let version = `V3 in
-  let hello = String.concat String.empty [
-    Formats.of_int32_le (int_of_version version) ;
-  ] in
+  let hello = Formats.of_int32_le (int_of_version version) in
   send t ~version ~ty:`Hello hello >>= function
   | `Eof -> Fmt.failwith "End-of-file sending msg_hello"
   | `Ok () -> Lwt.return_unit
@@ -391,10 +387,10 @@ let service_params ~version ~service ~vm ~request_id =
        String.length vm >= target_domain_len ||
        String.length request_id >= request_id_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service or request_id arguments too long");
-    let buf = String.concat String.empty [
+    let buf = String.concat "" [
         (zero_pad service service_len) ;
         (zero_pad vm target_domain_len) ;
-        (zero_pad request_id request_id_len);
+        (zero_pad request_id request_id_len) ;
         (* Not sure why we don't also add request_id as in `V3? *)
     ] in
     `Trigger_service, buf
@@ -404,7 +400,7 @@ let service_params ~version ~service ~vm ~request_id =
     if String.length vm >= target_domain_len ||
        String.length request_id >= request_id_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or request_id arguments too long");
-    let buf = String.concat String.empty [
+    let buf = String.concat "" [
         (zero_pad vm target_domain_len);
         (zero_pad request_id request_id_len);
         request_id;
