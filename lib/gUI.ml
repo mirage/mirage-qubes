@@ -75,11 +75,11 @@ let decode_FOCUS buf =
   Focus focus
 
 let decode_MSG_CLOSE buf =
-  Log.warn (fun f -> f "Event: CLOSE: %a" (Ohex.pp ()) buf);
+  Log.warn (fun f -> f "Event: CLOSE: %a" Ohex.pp buf);
   Window_close
 
 let decode_CLIPBOARD_DATA buf =
-  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" (Ohex.pp ()) buf);
+  Log.warn (fun f -> f "Event: CLIPBOARD_DATA: %a" Ohex.pp buf);
   let len = get_msg_clipboard_data_len buf |> Int32.to_int in
   match
     Int32.compare (get_msg_clipboard_data_len buf) 0l = -1
@@ -100,14 +100,14 @@ let decode_MSG_MOTION buf =
                  m.x m.y m.state m.is_hint);
     Motion m
   | None ->
-    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" (Ohex.pp ()) buf);
+    Log.warn (fun f -> f "attempted to decode a motion event, but we were not successful: %a" Ohex.pp buf);
     UNIT ()
 
 let decode_CONFIGURE buf =
   match decode_msg_configure buf with
   | Some m -> Configure m
   | None ->
-    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: %a" (Ohex.pp ()) buf);
+    Log.warn (fun f -> f "failed decoding CONFIGURE message from dom0: %a" Ohex.pp buf);
     UNIT ()
 
 let recv_event (window:window) =
@@ -197,11 +197,11 @@ let rec listen t () =
                           size msg! msg_header: %a@ Received raw buffer:: %a"
                  (match msg_type_size msg with Some x -> x | None -> -1)
                  msg_len
-                 (Ohex.pp ()) msg_header
-                 (Ohex.pp ()) msg_buf) ;
+                 Ohex.pp msg_header
+                 Ohex.pp msg_buf) ;
     UNIT()
   | Some MSG_MAP ->
-    Log.warn (fun f -> f "Event: MAP: %a" (Ohex.pp ()) msg_buf);
+    Log.warn (fun f -> f "Event: MAP: %a" Ohex.pp msg_buf);
     UNIT()
   | Some MSG_KEYPRESS -> decode_KEYPRESS msg_buf
   | Some MSG_FOCUS -> decode_FOCUS msg_buf
@@ -211,25 +211,25 @@ let rec listen t () =
     Clipboard_request
   | Some MSG_CROSSING -> begin match decode_msg_crossing msg_buf with
       | Some event -> Window_crossing event
-      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a" (Ohex.pp ()) msg_buf)
+      | None -> Log.warn (fun m -> m "Invalid MSG_CROSSING during decoding %a" Ohex.pp msg_buf)
               ; UNIT ()
       end
   | Some MSG_CLOSE -> decode_MSG_CLOSE msg_buf
   | Some MSG_BUTTON -> begin match decode_msg_button msg_buf with
       | Some button_event -> Button button_event
-      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a" (Ohex.pp ()) msg_buf)
+      | None -> Log.warn (fun m -> m "Invalid MSG_BUTTON decoding %a" Ohex.pp msg_buf)
         ; UNIT ()
       end
   | Some MSG_KEYMAP_NOTIFY ->
     (* Synchronize the keyboard state (key pressed/released) with dom0 *)
-    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %a" (Ohex.pp ()) msg_buf);
+    Log.warn (fun f -> f "Event: KEYMAP_NOTIFY: %a" Ohex.pp msg_buf);
     UNIT()
   | Some MSG_WINDOW_FLAGS ->
-    Log.warn (fun f -> f "Event: WINDOW_FLAGS: %a" (Ohex.pp ()) msg_buf)
+    Log.warn (fun f -> f "Event: WINDOW_FLAGS: %a" Ohex.pp msg_buf)
       ;
       UNIT ()
   | Some MSG_CONFIGURE ->
-    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a" (Ohex.pp ()) msg_buf);
+    Log.warn (fun f -> f "Event: CONFIGURE (should reply with this): %a" Ohex.pp msg_buf);
     (* TODO here we should ACK to Qubes that we accept the new dimensions,
             atm this is the responsibility of the user: *)
     decode_CONFIGURE msg_buf
@@ -246,12 +246,12 @@ let rec listen t () =
     (* Handle messages that are appvm->dom0 and thus dom0 is not supposed
        to send to the VM: *)
     Log.warn (fun f ->
-        f "UNEXPECTED message received. Data: %a" (Ohex.pp ()) msg_buf);
+        f "UNEXPECTED message received. Data: %a" Ohex.pp msg_buf);
         UNIT()
   | None ->
     Log.warn (fun f -> f "Unexpected data with unknown type: [%a] a %a"
-        (Ohex.pp ()) msg_header
-        (Ohex.pp ()) msg_buf) ;
+        Ohex.pp msg_header
+        Ohex.pp msg_buf) ;
     UNIT()
   end
   >>= fun () -> listen t ()
