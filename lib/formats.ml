@@ -2,9 +2,9 @@
 (** for more details, see qubes-gui-common/include/qubes-gui-protocol.h *)
 
 let of_int32_le i =
-  assert(i < Int32.max_int);
-  let i = Int32.to_int i in
-  String.init 4 (fun p -> Char.chr ((i lsr (p*8)) land 0xff))
+  let b = Bytes.create 4 in
+  Bytes.set_int32_le b 0 i ;
+  Bytes.unsafe_to_string b
 
 (* String.get_* exixt since 4.13, this stub will be removed when the min
    Ocaml version will match *)
