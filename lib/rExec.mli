@@ -11,12 +11,12 @@ module Flow : S.FLOW
 module Client_flow : sig
   type t
 
-  val write : t -> String.t -> [`Ok of unit | `Eof] Lwt.t
+  val write : t -> string -> [`Ok of unit | `Eof] Lwt.t
   (** Write to stdin *)
   val writef : t -> ('a, unit, string, [`Ok of unit | `Eof] Lwt.t) format4 -> 'a
   (* Write a formatted string to stdin *)
 
-  val read : t -> [`Stdout of String.t | `Stderr of String.t
+  val read : t -> [`Stdout of string | `Stderr of string
                   | `Eof | `Exit_code of int32] Lwt.t
   (** Read from stdout and stderr *)
 end

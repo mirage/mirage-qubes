@@ -18,7 +18,7 @@ module Make (F : Formats.FRAMING) = struct
   type t = {
     domid : int;
     vchan : Vchan_xen.flow;
-    mutable buffer : String.t;
+    mutable buffer : string;
     read_lock : Lwt_mutex.t;
     write_lock : Lwt_mutex.t;
   }
@@ -50,7 +50,7 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok body)
     )
 
-  let recv_raw t : String.t S.or_eof Lwt.t =
+  let recv_raw t : string S.or_eof Lwt.t =
     Lwt_mutex.with_lock t.read_lock @@ fun () ->
     if String.length t.buffer > 0 then (
       let data = t.buffer in
@@ -62,7 +62,7 @@ module Make (F : Formats.FRAMING) = struct
       return (`Ok data)
     )
 
-  let send t (buffers : String.t list) : unit S.or_eof Lwt.t =
+  let send t (buffers : string list) : unit S.or_eof Lwt.t =
     let cs = List.map Cstruct.of_string buffers in
     Lwt_mutex.with_lock t.write_lock (fun () ->
       Vchan_xen.writev t.vchan cs >>= function

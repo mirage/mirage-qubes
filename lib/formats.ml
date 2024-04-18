@@ -17,7 +17,7 @@ let get_uint8 s =
 
 module type FRAMING = sig
   val header_size : int
-  val body_size_from_header : String.t -> int
+  val body_size_from_header : string -> int
 end
 
 module Qrexec = struct
@@ -57,9 +57,9 @@ module Qrexec = struct
       let sizeof_exit_status = 4
 
       type trigger_service_params = {
-        service_name : String.t; (* [@len 64]; *)
-        target_domain : String.t; (* [@len 32]; *)
-        request_id : String.t; (* [@len 32] *)
+        service_name : string; (* [@len 64]; *)
+        target_domain : string; (* [@len 32]; *)
+        request_id : string; (* [@len 32] *)
       }
       let get_trigger_service_params_service_name h = String.sub h 0 64
       (* let set_trigger_service_params_service_name v ofs h = Bytes.blit_string v 0 h ofs 64 *)
@@ -70,8 +70,8 @@ module Qrexec = struct
       let sizeof_trigger_service_params = 64+32+32
 
       type trigger_service_params3 = {
-        target_domain : String.t; (* [@len 64]; *)
-        request_id : String.t; (* [@len 32] *)
+        target_domain : string; (* [@len 64]; *)
+        request_id : string; (* [@len 32] *)
         (* rest of message is service name *)
       }
       let get_trigger_service_params3_target_domain h = String.sub h 0 64
@@ -79,7 +79,7 @@ module Qrexec = struct
       let get_trigger_service_params3_request_id h = String.sub h 64 32
       (* let set_trigger_service_params3_request_id v ofs h = Bytes.blit_string v 0 h (64+ofs) 32 *)
       let sizeof_trigger_service_params3 = 64+32
-    
+
   type msg_type =
     [ `Exec_cmdline
     | `Just_exec
@@ -172,7 +172,7 @@ module GUI = struct
       (* let get_gui_protocol_version_version h = Bytes.get_int32_le h 0 *)
       (* let set_gui_protocol_version_version h v = Bytes.set_int32_le h 0 v *)
       let sizeof_gui_protocol_version = 4
- 
+
 
   (** struct msg_hdr *)
       type msg_header = {
@@ -460,7 +460,7 @@ module GUI = struct
 
   (* Dom0 -> VM *)
       type msg_execute = {
-        cmd: String.t; (* uint8_t [@len 255]; *)
+        cmd: string; (* uint8_t [@len 255]; *)
       }
       (* let get_msg_execute_cmd h = h *)
       (* let set_msg_execute_cmd h v = Bytes.blit v 0 h 0 255 *)
@@ -490,7 +490,7 @@ module GUI = struct
 
   (** VM -> Dom0 *)
       type msg_wmname = {
-        data : String.t (*uint8_t  [@len 128];*) (* title of the window *)
+        data : string (*uint8_t  [@len 128];*) (* title of the window *)
       }
       (* let get_msg_wmname_data h = h *)
       (* let set_msg_wmname_data h v = Bytes.blit v 0 h 0 128 *)
@@ -499,7 +499,7 @@ module GUI = struct
   (** Dom0 -> VM *)
       type msg_keymap_notify = {
         (* this is a 256-bit bitmap of which keys should be enabled*)
-        keys : String.t (*uint8_t [@len 32];*)
+        keys : string (*uint8_t [@len 32];*)
       }
       (* let get_msg_keymap_notify_keys h = h *)
       (* let set_msg_keymap_notify_keys h v = Bytes.blit v 0 h 0 32 *)
@@ -577,12 +577,12 @@ module GUI = struct
       (* let get_shm_cmd_domid h = Bytes.get_int32_le h 24 *)
       (* let set_shm_cmd_domid h v = Bytes.set_int32_le h 24 v *)
       let sizeof_shm_cmd = 28
-      
+
 
   (** VM -> Dom0 *)
       type msg_wmclass = {
-        res_class : String.t ; (* uint8_t [@len 64]; *)
-        res_name : String.t ;(* uint8_t [@len 64]; *)
+        res_class : string ; (* uint8_t [@len 64]; *)
+        res_name : string ;(* uint8_t [@len 64]; *)
       }
       (* let get_msg_wmclass_res_class h = Bytes.sub h 0 64 *)
       (* let set_msg_wmclass_res_class h v = Bytes.blit v 0 h 0 64 *)
@@ -678,7 +678,7 @@ module GUI = struct
     | 128l -> Some MSG_FOCUS
     (*| 124l -> Some MSG_RESIZE - DEPRECATED; NOT IMPLEMENTED *)
     | 130l -> Some MSG_CREATE         (*[@id 130_l]*) (* 0x82_l *)
-    | 131l -> Some MSG_DESTROY 
+    | 131l -> Some MSG_DESTROY
     | 132l -> Some MSG_MAP
     | 133l -> Some MSG_UNMAP
     | 134l -> Some MSG_CONFIGURE
@@ -871,8 +871,8 @@ module QubesDB = struct
 
       type msg_header = {
         ty        : int;
-        path      : String.t; (* [@len 64]; *)
-        padding   : String.t; (* [@len 3]; *)
+        path      : string; (* [@len 64]; *)
+        padding   : string; (* [@len 3]; *)
         data_len  : int32;
         (* rest of message is data *)
       }

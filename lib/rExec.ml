@@ -64,7 +64,7 @@ let recv t =
 module Flow = struct
   type t = {
     dstream : QV.t;
-    mutable stdin_buf : String.t;
+    mutable stdin_buf : string;
     ty : [`Just_exec | `Exec_cmdline];
     version : Formats.Qrexec.version;
   }
@@ -139,8 +139,8 @@ end
 module Client_flow = struct
   type t = {
     dstream : QV.t;
-    mutable stdout_buf : String.t;
-    mutable stderr_buf : String.t;
+    mutable stdout_buf : string;
+    mutable stderr_buf : string;
     version : Formats.Qrexec.version;
   }
 
