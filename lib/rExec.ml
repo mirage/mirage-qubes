@@ -20,8 +20,8 @@ let split chr s =
 
 let or_fail = function
   | `Ok y -> Lwt.return y
-  | `Error (`Unknown msg) -> Lwt.fail_with msg
-  | `Eof -> Lwt.fail End_of_file
+  | `Error (`Unknown msg) -> failwith msg
+  | `Eof -> raise End_of_file
 
 let vchan_base_port =
   match Vchan.Port.of_string "512" with
@@ -257,7 +257,7 @@ let with_flow ~ty ~domid ~port fn =
           let version = negotiate_version peer_version in
           Flow.create ~version ~ty client
         )
-        (fun ex -> QV.disconnect client >>= fun () -> Lwt.fail ex)
+        (fun ex -> QV.disconnect client >>= fun () -> Lwt.reraise ex)
     )
     (fun flow ->
       Lwt.try_bind
@@ -281,7 +281,7 @@ let port_of_int i =
 
 let parse_cmdline cmd =
   if cmd.[String.length cmd - 1] <> '\x00' then
-    Lwt.fail_with "Command not null-terminated"
+    failwith "Command not null-terminated"
   else (
     let cmd = String.sub cmd 0 (String.length cmd - 1) in
     match cmd |> split ':' with

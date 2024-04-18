@@ -153,10 +153,10 @@ let connect ~domid () =
   (* qubesgui_init_connection *)
   let version = Formats.of_int32_le qubes_gui_protocol_version_linux in
   QV.send qv [version] >>= function
-  | `Eof -> Lwt.fail_with "End-of-file sending protocol version"
+  | `Eof -> failwith "End-of-file sending protocol version"
   | `Ok () ->
   QV.recv_fixed qv sizeof_xconf >>= function
-  | `Eof -> Lwt.fail_with "End-of-file getting X configuration"
+  | `Eof -> failwith "End-of-file getting X configuration"
   | `Ok conf ->
   let screen_w = get_xconf_w conf in
   let screen_h = get_xconf_h conf in

@@ -7,7 +7,7 @@ open Formats.QubesDB
 let (>>!=) x f =
   x >>= function
   | `Ok y -> f y
-  | `Eof -> Lwt.fail_with "qubesdb-agent: end-of-file from QubesDB!"
+  | `Eof -> failwith "qubesdb-agent: end-of-file from QubesDB!"
   | `Error (`Unknown msg) -> Fmt.failwith "qubesdb-agent: %s" msg
 
 let starts_with str prefix =
