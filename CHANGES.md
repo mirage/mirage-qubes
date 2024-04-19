@@ -1,3 +1,7 @@
+### v0.9.4 (2024-04-19)
+
+- Remove internal Cstruct.t (#65, @reynir @hannesm @palainp)
+
 ### v0.9.3 (2022-09-07)
 
 - implement Qrexec protocol version 3 (#60 @reynir @palainp, fixes #38)
