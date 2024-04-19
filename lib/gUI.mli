@@ -15,7 +15,7 @@ type event =
   | Focus of msg_focus_t
   | Motion of msg_motion_t
   | Clipboard_request
-  | Clipboard_data of Cstruct.t
+  | Clipboard_data of string
   | Configure of Formats.GUI.msg_configure_t
   | Window_crossing of msg_crossing_t
   | Window_destroy
@@ -45,7 +45,7 @@ val create_window : ?parent:window_id -> x:Cstruct.uint32 -> y:Cstruct.uint32 ->
     coordinates [x]*[y] (relative to the screen's [0,0]).
 *)
 
-val send : t -> Cstruct.t list -> unit S.or_eof Lwt.t
+val send : t -> string list -> unit S.or_eof Lwt.t
 (** [send t messages] synchronously sends [messages] to the Qubes GUId
                       using [t]'s established vchan *)
 
