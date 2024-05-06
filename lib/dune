@@ -1,6 +1,4 @@
 (library
  (name qubes)
  (public_name mirage-qubes)
- (libraries cstruct ohex vchan-xen mirage-xen lwt logs)
- (preprocess
-  (pps ppx_cstruct)))
+ (libraries cstruct ohex vchan-xen mirage-xen lwt logs))
