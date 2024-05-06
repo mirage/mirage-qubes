@@ -1,3 +1,7 @@
+### v0.9.5 (2024-05-06)
+
+- Remove leftover ppx_cstruct from lib/dune (@hannesm)
+
 ### v0.9.4 (2024-04-19)
 
 - Remove internal Cstruct.t (#65, @reynir @hannesm @palainp)
