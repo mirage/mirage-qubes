@@ -1,3 +1,7 @@
+### v0.10.0 (2024-06-06)
+
+- Update the package with `tcpip.8.1.0` (#67, @palainp, @dinosaure)
+
 ### v0.9.5 (2024-05-06)
 
 - Remove leftover ppx_cstruct from lib/dune (@hannesm)
