@@ -703,7 +703,7 @@ http://ccrc.web.nthu.edu.tw/ezfiles/16/1016/img/598/v14n_xen.pdf
   (* type mfn : uint32_t;  big-endian 24-bit RGB pixel *)
 
   let make_with_header ~window ~ty ~body_len body =
-    (** see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
+    (* see qubes-gui-agent-linux/include/txrx.h:#define write_message *)
     String.concat "" [
       of_int32_le (msg_type_to_int ty) ;
       of_int32_le window ;

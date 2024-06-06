@@ -13,6 +13,7 @@ module Client_flow : sig
 
   val write : t -> string -> [`Ok of unit | `Eof] Lwt.t
   (** Write to stdin *)
+
   val writef : t -> ('a, unit, string, [`Ok of unit | `Eof] Lwt.t) format4 -> 'a
   (* Write a formatted string to stdin *)
 
