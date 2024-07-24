@@ -1,16 +1,17 @@
 
-let check_memory ?(fraction=0.4) () =
-  let fraction_free stats =
+let check_memory ?(fraction=40) () =
+  let is_enough stats =
     let { Xen_os.Memory.free_words; heap_words; _ } = stats in
-    float free_words /. float heap_words
+    (* Assuming 64bits integers, the following should not overlap *)
+    free_words * 100 >  heap_words * fraction
   in
   let stats = Xen_os.Memory.stat () in
-  if fraction_free stats > fraction then `Ok
+  if is_enough stats then `Ok
   else (
     Gc.full_major ();
     let stats = Xen_os.Memory.quick_stat () in
-    if fraction_free stats < fraction then `Memory_critical
-    else `Ok
+    if is_enough stats then `Ok
+    else `Memory_critical
   )
 
 let shutdown =
