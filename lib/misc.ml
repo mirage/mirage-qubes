@@ -1,5 +1,6 @@
 
 let check_memory ?(fraction=40) () =
+  if fraction <= 0 || fraction >= 100 then invalid_arg "fraction invalid: 0 < fraction < 100";
   let is_enough stats =
     let { Xen_os.Memory.free_words; heap_words; _ } = stats in
     (* Assuming 64bits integers, the following should not overlap *)
