@@ -1,3 +1,7 @@
+### v0.11.0 (2024-08-10)
+
+- Add `check_memory` that triggers a collection if free memory is low, and `shutdown` that waits for a shutdown request from Qubes (#71, @palainp @hannesm)
+
 ### v0.10.0 (2024-06-06)
 
 - Update the package with `tcpip.8.1.0` (#67, @palainp, @dinosaure)
