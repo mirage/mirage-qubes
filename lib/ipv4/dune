@@ -2,4 +2,4 @@
  (name qubesdb_ipv4)
  (public_name mirage-qubes-ipv4)
  (libraries lwt tcpip tcpip.ipv4 ipaddr
-   arp ethernet mirage-qubes mirage-clock mirage-random))
+   arp ethernet mirage-qubes mirage-clock mirage-crypto-rng-mirage))
