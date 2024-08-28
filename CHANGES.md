@@ -1,3 +1,7 @@
+### v1.0.0 (2024-08-28)
+
+- Update to mirage-crypto 1.0.0 series (#73, @hannesm) 
+
 ### v0.11.0 (2024-08-10)
 
 - Add `check_memory` that triggers a collection if free memory is low, and `shutdown` that waits for a shutdown request from Qubes (#71, @palainp @hannesm)
