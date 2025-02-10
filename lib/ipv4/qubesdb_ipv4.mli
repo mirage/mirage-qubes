@@ -1,7 +1,5 @@
 module Make
     (D : Qubes.S.DB)
-    (R : Mirage_crypto_rng_mirage.S)
-    (C : Mirage_clock.MCLOCK)
     (Ethernet : Ethernet.S)
     (Arp : Arp.S) : sig
 

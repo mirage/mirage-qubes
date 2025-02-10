@@ -1,10 +1,8 @@
 module Make
     (D: Qubes.S.DB)
-    (R: Mirage_crypto_rng_mirage.S)
-    (C: Mirage_clock.MCLOCK)
     (Ethernet : Ethernet.S)
     (Arp : Arp.S) = struct
-  include Static_ipv4.Make(R)(C)(Ethernet)(Arp)
+  include Static_ipv4.Make(Ethernet)(Arp)
   let connect db ethif arp =
     let (>>=?) ip f = match ip with
       | None -> Error (`Msg "couldn't read qubesdb")
