@@ -30,3 +30,4 @@ Implementations of various Qubes protocols:
 - Qubes.RExec: provide services to other VMs
 - Qubes.GUI: just enough of the GUI protocol so that Qubes accepts the AppVM
 - Qubes.DB: read and write the VM's QubesDB database"""
+x-maintenance-intent: [ "(latest)" ]
