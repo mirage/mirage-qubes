@@ -1,6 +1,10 @@
+### v2.0.0 (2025-02-11)
+
+- Adapt to tcpip 9.0.0 API changes (#75, @hannesm)
+
 ### v1.0.0 (2024-08-28)
 
-- Update to mirage-crypto 1.0.0 series (#73, @hannesm) 
+- Update to mirage-crypto 1.0.0 series (#73, @hannesm)
 
 ### v0.11.0 (2024-08-10)
 
