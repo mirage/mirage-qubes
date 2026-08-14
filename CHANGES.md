@@ -1,7 +1,7 @@
 ### v2.0.1 (2026-08-14)
 
-- add default handler for commands, change the API for listen (#76, @palainp)
-- use quick_stat to check the free memory available all the time (#77, @palainp)
+- add default handler for commands, change the API for listen (#76, @palainp, reviewed by @hannesm)
+- use quick_stat to check the free memory available all the time (#77, @palainp, reviewed by @hannesm)
 
 ### v2.0.0 (2025-02-11)
 
