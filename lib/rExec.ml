@@ -315,7 +315,7 @@ let exec t ~ty ~handler msg =
 let start_connection params clients =
   let domid = Formats.Qrexec.get_exec_params_connect_domain params in
   let port = Formats.Qrexec.get_exec_params_connect_port params in
-  let request_id = String.sub params sizeof_exec_params (String.length params) in
+  let request_id = String.sub params sizeof_exec_params (String.length params - sizeof_exec_params) in
   Log.debug (fun f -> f "service_connect message received: domain %lu, port %lu, request_id %S" domid port request_id);
   Log.debug (fun f -> f "Connecting...");
   match Vchan.Port.of_string (Int32.to_string port) with
