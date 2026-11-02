@@ -44,7 +44,7 @@ let rec send t ~version ~ty data =
   let lmin = min (max_data_chunk version) ldata in
   let hdr =
     Formats.of_int32_le (int_of_type ty) ^
-    Formats.of_int32_le (Int32.of_int ldata)
+    Formats.of_int32_le (Int32.of_int lmin)
   in
   if ldata = lmin
   then QV.send t [hdr; data]
