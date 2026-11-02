@@ -392,7 +392,7 @@ let service_params ~version ~service ~vm ~request_id =
     and request_id_len = 32 in
     if String.length service >= service_len ||
        String.length vm >= target_domain_len ||
-       String.length request_id >= request_id_len
+       String.length request_id > request_id_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service or request_id arguments too long");
     let buf = String.concat "" [
         (zero_pad service service_len) ;
@@ -405,12 +405,12 @@ let service_params ~version ~service ~vm ~request_id =
     let target_domain_len = 64
     and request_id_len = 32 in
     if String.length vm >= target_domain_len ||
-       String.length request_id >= request_id_len
+       String.length request_id > request_id_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or request_id arguments too long");
     let buf = String.concat "" [
         (zero_pad vm target_domain_len);
         (zero_pad request_id request_id_len);
-        request_id;
+        service; "\000";
     ] in
     `Trigger_service3, buf
 
