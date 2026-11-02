@@ -37,7 +37,7 @@ let max_data_chunk_v3 = 65536
 
 let max_data_chunk : Formats.Qrexec.version -> int = function
   | `V2 -> max_data_chunk_v2
-  | `V3 -> max_data_chunk_v3
+  | `V3 | `V4 -> max_data_chunk_v3
 
 let rec send t ~version ~ty data =
   let ldata = String.length data in
@@ -210,9 +210,10 @@ let disconnect t =
 
 type handler = user:string -> string -> Flow.t -> int Lwt.t
 
+let our_version = `V4
+
 let send_hello t =
-  let version = `V3 in
-  let hello = Formats.of_int32_le (int_of_version version) in
+  let hello = Formats.of_int32_le (int_of_version our_version) in
   send t ~version ~ty:`Hello hello >>= function
   | `Eof -> Fmt.failwith "End-of-file sending msg_hello"
   | `Ok () -> Lwt.return_unit
@@ -231,8 +232,9 @@ let negotiate_version (peer_version : [ version | `Unknown_version of int32 ])
     match peer_version with
     | `Unknown_version x -> if x < int_of_version `V2
       then Fmt.failwith "Unsupported qrexec version %lu" x
-      else `V3
-    | #version as version -> version
+      else our_version (* when the version is unknown and is >=2, it must be a newer version, so keep ours *)
+    | #version as their -> (* keep the minimum version *)
+      if int_of_version their < int_of_version our_version then their else our_version
   in
   Log.debug (fun f -> f "remote end wants to use protocol version %lu, \
                          continuing with version %lu"
@@ -413,6 +415,19 @@ let service_params ~version ~service ~vm ~request_id =
         request_id;
     ] in
     `Trigger_service3, buf
+  | `V4 ->
+    let target_domain_len = 64
+    and request_id_len = 32 in
+    if String.length vm >= target_domain_len ||
+       String.length request_id > request_id_len
+    then raise (Invalid_argument "Qubes.RExec.qrexec: vm or request_id arguments too long");
+    let buf = String.concat "" [
+        (zero_pad "" 64); (* source domain: none *)
+        (zero_pad vm target_domain_len);
+        (zero_pad request_id request_id_len);
+        service; "\000";
+    ] in
+    `Trigger_service4, buf
 
 let qrexec t ~vm ~service client =
   (* XXX: This *should* be unique. The counter could overflow, though *)
