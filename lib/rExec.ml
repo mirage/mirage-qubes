@@ -44,7 +44,7 @@ let rec send t ~version ~ty data =
   let lmin = min (max_data_chunk version) ldata in
   let hdr =
     Formats.of_int32_le (int_of_type ty) ^
-    Formats.of_int32_le (Int32.of_int ldata)
+    Formats.of_int32_le (Int32.of_int lmin)
   in
   if ldata = lmin
   then QV.send t [hdr; data]
@@ -315,7 +315,7 @@ let exec t ~ty ~handler msg =
 let start_connection params clients =
   let domid = Formats.Qrexec.get_exec_params_connect_domain params in
   let port = Formats.Qrexec.get_exec_params_connect_port params in
-  let request_id = String.sub params sizeof_exec_params (String.length params) in
+  let request_id = String.sub params sizeof_exec_params (String.length params - sizeof_exec_params) in
   Log.debug (fun f -> f "service_connect message received: domain %lu, port %lu, request_id %S" domid port request_id);
   Log.debug (fun f -> f "Connecting...");
   match Vchan.Port.of_string (Int32.to_string port) with
@@ -392,7 +392,7 @@ let service_params ~version ~service ~vm ~request_id =
     and request_id_len = 32 in
     if String.length service >= service_len ||
        String.length vm >= target_domain_len ||
-       String.length request_id >= request_id_len
+       String.length request_id > request_id_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service or request_id arguments too long");
     let buf = String.concat "" [
         (zero_pad service service_len) ;
@@ -405,12 +405,12 @@ let service_params ~version ~service ~vm ~request_id =
     let target_domain_len = 64
     and request_id_len = 32 in
     if String.length vm >= target_domain_len ||
-       String.length request_id >= request_id_len
+       String.length request_id > request_id_len
     then raise (Invalid_argument "Qubes.RExec.qrexec: vm or request_id arguments too long");
     let buf = String.concat "" [
         (zero_pad vm target_domain_len);
         (zero_pad request_id request_id_len);
-        request_id;
+        service; "\000";
     ] in
     `Trigger_service3, buf
 
