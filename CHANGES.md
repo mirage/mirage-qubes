@@ -1,3 +1,9 @@
+### v2.1.0 (2026-11-03)
+
+- add the notification service based on qrexec (#79, @palainp, reviewed by @hannesm)
+- add the qrexec V4 protocol (#81, @palainp, reviewed by @hannesm)
+- consider only the V4: V3 and older are used in EOL Qubes releases (#82, @palainp, reviewed by @hannesm)
+
 ### v2.0.1 (2026-08-14)
 
 - add default handler for commands, change the API for listen (#76, @palainp, reviewed by @hannesm)
