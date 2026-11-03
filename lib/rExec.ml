@@ -214,7 +214,7 @@ let our_version = `V4
 
 let send_hello t =
   let hello = Formats.of_int32_le (int_of_version our_version) in
-  send t ~version ~ty:`Hello hello >>= function
+  send t ~version:our_version ~ty:`Hello hello >>= function
   | `Eof -> Fmt.failwith "End-of-file sending msg_hello"
   | `Ok () -> Lwt.return_unit
 
