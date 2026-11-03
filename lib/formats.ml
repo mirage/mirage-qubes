@@ -76,9 +76,7 @@ module Qrexec = struct
     | `Just_exec
     | `Service_connect
     | `Service_refused
-    | `Trigger_service
     | `Connection_terminated
-    | `Trigger_service3
     | `Trigger_service4
     | `Hello
     | `Data_stdin
@@ -95,9 +93,7 @@ module Qrexec = struct
     | 0x201l -> `Just_exec
     | 0x202l -> `Service_connect
     | 0x203l -> `Service_refused
-    | 0x210l -> `Trigger_service
     | 0x211l -> `Connection_terminated
-    | 0x212l -> `Trigger_service3
     | 0x213l -> `Trigger_service4
     | 0x300l -> `Hello
     | x -> `Unknown x
@@ -111,9 +107,7 @@ module Qrexec = struct
     | `Just_exec -> 0x201l
     | `Service_connect -> 0x202l
     | `Service_refused -> 0x203l
-    | `Trigger_service -> 0x210l
     | `Connection_terminated -> 0x211l
-    | `Trigger_service3 -> 0x212l
     | `Trigger_service4 -> 0x213l
     | `Hello -> 0x300l
     | `Unknown x -> x
@@ -127,9 +121,7 @@ module Qrexec = struct
     | `Just_exec -> "MSG_JUST_EXEC"
     | `Service_connect -> "MSG_SERVICE_CONNECT"
     | `Service_refused -> "MSG_SERVICE_REFUSED"
-    | `Trigger_service -> "MSG_TRIGGER_SERVICE"
     | `Connection_terminated -> "MSG_CONNECTION_TERMINATED"
-    | `Trigger_service3 -> "MSG_TRIGGER_SERVICE3"
     | `Trigger_service4 -> "MSG_TRIGGER_SERVICE4"
     | `Hello -> "MSG_HELLO"
     | `Unknown x -> "Unknown message: " ^ (Int32.to_string x)
