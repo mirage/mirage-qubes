@@ -6,20 +6,24 @@ open Lwt.Infix
 let src = Logs.Src.create "qubes.notifications" ~doc:"Qubes notifications"
 module Log = (val Logs.src_log src : Logs.LOG)
 
+(* Our major must match the server one, and our minor must be less or equal to the server one (so 0 is always correct). *)
+let our_major = 1
+let our_minor = 0
+
 module Wire = struct
   let le32 v =
     let b = Bytes.create 4 in
     Bytes.set_int32_le b 0 (Int32.of_int v);
     Bytes.unsafe_to_string b
 
-  (* Currently only version 1 is supported by Qubes, version is encoded a ((major << 16) | minor) *)
+  (* Check the other side's version. *)
   let negotiate v =
     if String.length v <> 4 then Error "version must be 4 bytes"
     else
-      let v = Int32.to_int (String.get_int32_le v 0) land 0xFFFF_FFFF in
-      if v lsr 16 <> 1 then
-        Error (Fmt.str "unsupported protocol version %d.%d" (v lsr 16) (v land 0xFFFF))
-      else Ok (le32 0x0001_0000)
+      let minor = String.get_uint16_le v 0 and major = String.get_uint16_le v 2 in
+      if major <> our_major then
+        Error (Fmt.str "unsupported protocol version %d.%d" major minor)
+      else Ok ()
 
   (* If the string is not UTF8 valid, replace non ASCII chars by '?' *)
   let sanitize s =
@@ -61,6 +65,13 @@ let read_version flow =
   in
   loop ""
 
+(* The version value is encoded a ((major << 16) | minor).*)
+let our_version =
+  let b = Bytes.create 4 in
+  Bytes.set_uint16_le b 0 our_minor;
+  Bytes.set_uint16_le b 2 our_major;
+  Bytes.unsafe_to_string b
+
 (* Ignore replies (ids, dismissals) until EOF. *)
 let rec drain flow =
   RExec.Client_flow.read flow >>= function
@@ -89,8 +100,8 @@ let connect ?(vm = "") rexec =
           | Ok v -> (
               match Wire.negotiate v with
               | Error e -> Lwt.return (Error e)
-              | Ok answer -> (
-                  RExec.Client_flow.write flow answer >|= function
+              | Ok () -> (
+                  RExec.Client_flow.write flow our_version >|= function
                   | `Eof -> Error "version negotiation: end of file"
                   | `Ok () ->
                       Lwt.async (fun () -> drain flow);

@@ -11,8 +11,8 @@ val notify : t -> ?body:string -> string -> (unit, string) result Lwt.t
 
 (** Encoding, no I/O. *)
 module Wire : sig
-  val negotiate : string -> (string, string) result
-  (** Takes the 4 bytes sent first by the server, returns the answer. *)
+  val negotiate : string -> (unit, string) result
+  (** Takes the 4 bytes sent first by the server, check the version and returns Ok () if the version is the expected one. *)
 
   val encode : sequence:int64 -> summary:string -> body:string -> string
   (** Framed message: u32 length then the bincode body. *)
