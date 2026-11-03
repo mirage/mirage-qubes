@@ -79,6 +79,7 @@ module Qrexec = struct
     | `Trigger_service
     | `Connection_terminated
     | `Trigger_service3
+    | `Trigger_service4
     | `Hello
     | `Data_stdin
     | `Data_stdout
@@ -134,19 +135,13 @@ module Qrexec = struct
     | `Unknown x -> "Unknown message: " ^ (Int32.to_string x)
 
   type version =
-    [ `V2
-    | `V3
-    | `V4 ]
+    [ `V4 ]
 
   let version_of_int = function
-    | 2l -> `V2
-    | 3l -> `V3
     | 4l -> `V4
     | x -> `Unknown_version x
 
   let int_of_version = function
-    | `V2 -> 2l
-    | `V3 -> 3l
     | `V4 -> 4l
     | `Unknown_version x -> x
 

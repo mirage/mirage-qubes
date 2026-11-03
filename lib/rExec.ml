@@ -9,6 +9,9 @@ module QV = Msg_chan.Make(Framing)
 let src = Logs.Src.create "qubes.rexec" ~doc:"Qubes qrexec-agent"
 module Log = (val Logs.src_log src : Logs.LOG)
 
+(* We support only that qrexec version. *)
+let our_version = `V4
+
 let (>>!=) = Msg_chan.(>>!=)
 
 let split chr s =
@@ -28,16 +31,11 @@ let vchan_base_port =
   | Error (`Msg msg) -> failwith msg
   | Ok port -> port
 
-
-let max_data_chunk_v2 = 4096
-(** Max size for data chunks. See MAX_DATA_CHUNK in qubes-linux-utils/qrexec-lib/qrexec.h *)
-
-let max_data_chunk_v3 = 65536
+let max_data_chunk = 65536
 (** protocol version 3+ *)
 
 let max_data_chunk : Formats.Qrexec.version -> int = function
-  | `V2 -> max_data_chunk_v2
-  | `V3 | `V4 -> max_data_chunk_v3
+  | `V4 -> max_data_chunk
 
 let rec send t ~version ~ty data =
   let ldata = String.length data in
@@ -210,8 +208,6 @@ let disconnect t =
 
 type handler = user:string -> string -> Flow.t -> int Lwt.t
 
-let our_version = `V4
-
 let send_hello t =
   let hello = Formats.of_int32_le (int_of_version our_version) in
   send t ~version:our_version ~ty:`Hello hello >>= function
@@ -230,17 +226,15 @@ let negotiate_version (peer_version : [ version | `Unknown_version of int32 ])
   : version =
   let version =
     match peer_version with
-    | `Unknown_version x -> if x < int_of_version `V2
-      then Fmt.failwith "Unsupported qrexec version %lu" x
-      else our_version (* when the version is unknown and is >=2, it must be a newer version, so keep ours *)
-    | #version as their -> (* keep the minimum version *)
-      if int_of_version their < int_of_version our_version then their else our_version
+    | #version as their when int_of_version their = int_of_version our_version -> our_version
+    | #version as their ->
+      Fmt.failwith "Unsupported qrexec version %lu" (int_of_version their)
+    | `Unknown_version x -> Fmt.failwith "Unsupported qrexec version %lu" x
   in
   Log.debug (fun f -> f "remote end wants to use protocol version %lu, \
                          continuing with version %lu"
                 (int_of_version peer_version) (int_of_version version));
   version
-
 
 
 let try_close flow return_code =
@@ -388,33 +382,6 @@ let service_params ~version ~service ~vm ~request_id =
     String.init len (fun i -> if i < String.length s then s.[i] else '\000')
   in
   match version with
-  | `V2 ->
-    let service_len = 64
-    and target_domain_len = 32
-    and request_id_len = 32 in
-    if String.length service >= service_len ||
-       String.length vm >= target_domain_len ||
-       String.length request_id > request_id_len
-    then raise (Invalid_argument "Qubes.RExec.qrexec: vm or service or request_id arguments too long");
-    let buf = String.concat "" [
-        (zero_pad service service_len) ;
-        (zero_pad vm target_domain_len) ;
-        (zero_pad request_id request_id_len) ;
-        (* Not sure why we don't also add request_id as in `V3? *)
-    ] in
-    `Trigger_service, buf
-  | `V3 ->
-    let target_domain_len = 64
-    and request_id_len = 32 in
-    if String.length vm >= target_domain_len ||
-       String.length request_id > request_id_len
-    then raise (Invalid_argument "Qubes.RExec.qrexec: vm or request_id arguments too long");
-    let buf = String.concat "" [
-        (zero_pad vm target_domain_len);
-        (zero_pad request_id request_id_len);
-        service; "\000";
-    ] in
-    `Trigger_service3, buf
   | `V4 ->
     let target_domain_len = 64
     and request_id_len = 32 in
